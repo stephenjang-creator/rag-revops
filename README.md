@@ -138,6 +138,34 @@ are stored on the platform — the app reads keys the visitor enters in the side
 **Cost/exposure:** none to you. The demo spends the *visitor's* API credits, and
 your keys never touch the hosted runtime.
 
+## Continuous evaluation (faithfulness gate)
+
+Every pull request runs the offline eval and **fails the build if mean faithfulness
+drops below `eval.min_faithfulness`** (0.85). This is what keeps a well-meaning
+change to chunking, retrieval, or a prompt from silently degrading answer quality —
+the pipeline is guarded by a measured quality bar, not vibes.
+
+The gate (`.github/workflows/ci.yml`, job `faithfulness-gate`) runs a bounded subset
+(default 15 items) on each PR to keep cost small, and can be run over the full set
+on demand via the Actions "Run workflow" button (`workflow_dispatch`, `eval_limit=0`).
+The JSON report is uploaded as a build artifact.
+
+**One-time setup to enable the gate:**
+
+1. Add API keys as repository secrets (Settings → Secrets and variables → Actions):
+   `ANTHROPIC_API_KEY` and `COHERE_API_KEY`. They are never committed; the job reads
+   them from the secrets context and skips cleanly if they're absent (e.g. fork PRs).
+2. Commit the golden set and the prebuilt index so CI has data to evaluate against:
+   ```bash
+   git add -f eval/golden.jsonl data/processed/chroma
+   git commit -m "Add golden eval set + prebuilt index for CI gate"
+   ```
+
+Note on the judge: the evaluator uses Claude directly (no Ragas) — see
+`eval/judge.py`. Generating and judging with the same model family carries a mild
+self-preference bias, an accepted tradeoff for a portfolio eval; the judge model is
+a single config value (`eval.judge_model`) if an independent grader is preferred.
+
 ## License
 
 Code: MIT. Data: see `docs/DATA_PROVENANCE.md` (CUAD is CC BY 4.0; vendor agreements are linked, not redistributed).
