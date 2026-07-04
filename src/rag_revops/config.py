@@ -53,6 +53,19 @@ class RetrievalConfig(BaseModel):
     use_hybrid: bool = True  # False falls back to pure dense retrieval
 
 
+class RerankConfig(BaseModel):
+    enabled: bool = True
+    model: str = "rerank-english-v3.0"
+    top_n: int = 5              # chunks kept after reranking, passed to generation
+    # "Balanced" starting point. Rerank scores are ~[0,1]; below this the best
+    # candidate isn't relevant enough to answer from, so we decline. Tune against
+    # the Phase 3 eval set rather than by feel.
+    min_relevance: float = 0.30
+    max_retries: int = 5
+    backoff_base_s: float = 5.0
+    backoff_cap_s: float = 60.0
+
+
 class GenerationConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-6"
@@ -71,6 +84,7 @@ class Settings(BaseModel):
     embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
     vectorstore: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
+    rerank: RerankConfig = Field(default_factory=RerankConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     prompts: PromptConfig
 

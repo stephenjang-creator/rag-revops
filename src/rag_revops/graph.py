@@ -19,14 +19,15 @@ from .config import Settings, load_settings
 from .embeddings import CohereEmbedder
 from .generation import DECLINE_SENTINEL, AnswerResult, Generator
 from .hybrid import HybridRetriever
+from .rerank import CohereReranker
 from .retrieval import Retriever
 from .vectorstore import ChromaStore, RetrievedChunk
 
-# For pure DENSE retrieval, chunk scores are cosine similarity (~0..1), so we can
-# decline on a low best-match score. For HYBRID retrieval, scores are RRF values
-# on a different, compressed scale where an absolute threshold is meaningless —
-# there we route on presence of results and let the reranker (next step) own
-# quality-based declining. Tune the dense threshold in Phase 3 against eval.
+# For pure DENSE retrieval with NO reranker, chunk scores are cosine similarity
+# (~0..1), so we decline on a low best-match score. When the reranker is enabled,
+# the decline decision moves to the rerank node, which owns a calibrated relevance
+# score (see RerankConfig.min_relevance). RRF (hybrid) scores are not suitable for
+# an absolute threshold, so hybrid-without-rerank routes on presence of results.
 _MIN_DENSE_TOP_SCORE = 0.25
 
 
@@ -42,10 +43,12 @@ class RagPipeline:
         self.store = ChromaStore(self.settings.vectorstore)
         self.embedder = CohereEmbedder(self.settings.embeddings)
         self.use_hybrid = getattr(self.settings.retrieval, "use_hybrid", False)
+        self.use_rerank = getattr(self.settings.rerank, "enabled", False)
         if self.use_hybrid:
             self.retriever = HybridRetriever(self.settings, self.store, self.embedder)
         else:
             self.retriever = Retriever(self.settings, self.store, self.embedder)
+        self.reranker = CohereReranker(self.settings.rerank) if self.use_rerank else None
         self.generator = Generator(self.settings)
         self._graph = self._build()
 
@@ -53,6 +56,10 @@ class RagPipeline:
     def _retrieve(self, state: PipelineState) -> PipelineState:
         chunks = self.retriever.retrieve(state["question"])
         return {"chunks": chunks}
+
+    def _rerank(self, state: PipelineState) -> PipelineState:
+        reranked = self.reranker.rerank(state["question"], state["chunks"])
+        return {"chunks": reranked}
 
     def _generate(self, state: PipelineState) -> PipelineState:
         result = self.generator.generate(state["question"], state["chunks"])
@@ -70,13 +77,21 @@ class RagPipeline:
         }
 
     # --- routing -----------------------------------------------------------
-    def _route(self, state: PipelineState) -> str:
+    def _route_after_retrieve(self, state: PipelineState) -> str:
+        """Route straight after retrieval (used when reranker is OFF)."""
         chunks = state.get("chunks") or []
         if not chunks:
             return "decline"
-        # Dense scores are comparable to an absolute similarity floor; RRF scores
-        # are not, so for hybrid we defer quality-based declining to later stages.
         if not self.use_hybrid and chunks[0].score < _MIN_DENSE_TOP_SCORE:
+            return "decline"
+        return "generate"
+
+    def _route_after_rerank(self, state: PipelineState) -> str:
+        """Route after reranking (used when reranker is ON). Decline decision is
+        based on the calibrated rerank relevance score — this is the principled
+        citation-enforcement gate."""
+        chunks = state.get("chunks") or []
+        if not chunks or chunks[0].score < self.settings.rerank.min_relevance:
             return "decline"
         return "generate"
 
@@ -86,9 +101,23 @@ class RagPipeline:
         g.add_node("generate", self._generate)
         g.add_node("decline", self._decline)
         g.set_entry_point("retrieve")
-        g.add_conditional_edges(
-            "retrieve", self._route, {"generate": "generate", "decline": "decline"}
-        )
+
+        if self.use_rerank:
+            g.add_node("rerank", self._rerank)
+            # retrieve always flows into rerank; the decline gate is post-rerank.
+            g.add_edge("retrieve", "rerank")
+            g.add_conditional_edges(
+                "rerank",
+                self._route_after_rerank,
+                {"generate": "generate", "decline": "decline"},
+            )
+        else:
+            g.add_conditional_edges(
+                "retrieve",
+                self._route_after_retrieve,
+                {"generate": "generate", "decline": "decline"},
+            )
+
         g.add_edge("generate", END)
         g.add_edge("decline", END)
         return g.compile()
