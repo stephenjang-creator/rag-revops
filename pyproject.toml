@@ -48,8 +48,10 @@ dev = [
     "mypy>=1.11.0",
 ]
 eval = [
-    "ragas>=0.2.0",       # Phase 3
-    "datasets>=3.0.0",
+    # The evaluator uses the Anthropic client directly (see eval/judge.py), so no
+    # Ragas / langchain-community judge stack is required — this avoids the version
+    # conflicts between Ragas' old-langchain expectations and LangGraph's 1.x core.
+    # No extra dependencies beyond what the pipeline already installs.
 ]
 
 [project.scripts]
@@ -74,3 +76,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = [".", "src"]

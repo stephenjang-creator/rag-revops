@@ -34,6 +34,17 @@ generation:
   max_tokens: 1024
   temperature: 0.0          # deterministic, grounded answers
 
+# Phase 3 faithfulness evaluation (Ragas). The judge is Claude to keep the stack
+# Anthropic-native; note the mild self-preference caveat in eval/run_eval.py.
+eval:
+  judge_model: "claude-sonnet-4-6"
+  judge_max_tokens: 1024
+  min_faithfulness: 0.85     # CI gate fails the build below this
+  metrics:
+    - faithfulness
+    - answer_relevancy
+    - context_precision
+
 # Prompts are versioned here. Changing a prompt is a reviewable diff.
 prompts:
   # The exact string the model is told to emit when it can't answer, and which

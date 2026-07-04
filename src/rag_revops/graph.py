@@ -125,3 +125,13 @@ class RagPipeline:
     def ask(self, question: str) -> AnswerResult:
         final = self._graph.invoke({"question": question})
         return final["result"]
+
+    def ask_with_contexts(self, question: str) -> tuple[AnswerResult, list[str]]:
+        """Like ask(), but also returns the full text of the chunks that were in
+        context at generation time. The eval needs the complete chunk texts (not
+        the truncated citation snippets) to score whether the answer's claims are
+        grounded. On a declined answer the contexts are whatever was retrieved."""
+        final = self._graph.invoke({"question": question})
+        chunks = final.get("chunks") or []
+        contexts = [c.text for c in chunks]
+        return final["result"], contexts

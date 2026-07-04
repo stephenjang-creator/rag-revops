@@ -73,6 +73,21 @@ class GenerationConfig(BaseModel):
     temperature: float = 0.0
 
 
+class EvalConfig(BaseModel):
+    # Ragas uses an LLM as judge. We use Claude to keep the stack Anthropic-native
+    # and avoid a second vendor. Note: generating and judging with the same model
+    # family carries a mild self-preference bias — acceptable for a portfolio eval,
+    # and the judge model can be swapped here for a fully independent grader.
+    judge_model: str = "claude-sonnet-4-6"
+    judge_max_tokens: int = 1024
+    # CI gate: build fails if mean faithfulness on answered items drops below this.
+    min_faithfulness: float = 0.85
+    # Metrics to compute (must match names the runner knows).
+    metrics: list[str] = Field(
+        default_factory=lambda: ["faithfulness", "answer_relevancy", "context_precision"]
+    )
+
+
 class PromptConfig(BaseModel):
     system: str
     user_template: str
@@ -87,6 +102,7 @@ class Settings(BaseModel):
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     rerank: RerankConfig = Field(default_factory=RerankConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
+    eval: EvalConfig = Field(default_factory=EvalConfig)
     prompts: PromptConfig
 
 
