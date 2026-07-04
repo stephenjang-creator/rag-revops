@@ -17,7 +17,7 @@ from langgraph.graph import END, StateGraph
 
 from .config import Settings, load_settings
 from .embeddings import CohereEmbedder
-from .generation import DECLINE_SENTINEL, AnswerResult, Generator
+from .generation import AnswerResult, Generator
 from .hybrid import HybridRetriever
 from .rerank import CohereReranker
 from .retrieval import Retriever
@@ -69,7 +69,7 @@ class RagPipeline:
         return {
             "result": AnswerResult(
                 question=state["question"],
-                answer=DECLINE_SENTINEL,
+                answer=self.settings.prompts.decline_message,
                 citations=[],
                 declined=True,
                 model=self.settings.generation.model,

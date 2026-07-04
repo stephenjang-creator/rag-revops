@@ -15,8 +15,6 @@ import anthropic
 from .config import Settings, load_secrets
 from .vectorstore import RetrievedChunk
 
-DECLINE_SENTINEL = "I couldn't find support for that in the provided documents."
-
 
 @dataclass
 class Citation:
@@ -67,11 +65,12 @@ class Generator:
     def generate(self, question: str, chunks: list[RetrievedChunk]) -> AnswerResult:
         cfg = self.settings.generation
         prompts = self.settings.prompts
+        decline_message = prompts.decline_message
 
         if not chunks:
             return AnswerResult(
                 question=question,
-                answer=DECLINE_SENTINEL,
+                answer=decline_message,
                 citations=[],
                 declined=True,
                 model=cfg.model,
@@ -91,7 +90,7 @@ class Generator:
             block.text for block in resp.content if block.type == "text"
         ).strip()
 
-        declined = answer.strip() == DECLINE_SENTINEL
+        declined = answer.strip() == decline_message
         used = [] if declined else _cited_only(answer, citations)
 
         return AnswerResult(

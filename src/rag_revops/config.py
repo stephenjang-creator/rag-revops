@@ -76,6 +76,7 @@ class GenerationConfig(BaseModel):
 class PromptConfig(BaseModel):
     system: str
     user_template: str
+    decline_message: str = "I couldn't find support for that in the provided documents."
 
 
 class Settings(BaseModel):
@@ -103,7 +104,14 @@ def load_settings(path: Path | None = None) -> Settings:
     cfg_path = path or _DEFAULT_CONFIG
     with cfg_path.open("r", encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
-    return Settings.model_validate(raw)
+    settings = Settings.model_validate(raw)
+    # Resolve the {decline_message} placeholder in the system prompt so the
+    # canonical decline string lives in exactly one place. Only that placeholder
+    # is substituted; other braces in the prompt (if any) are left untouched.
+    settings.prompts.system = settings.prompts.system.replace(
+        "{decline_message}", settings.prompts.decline_message
+    )
+    return settings
 
 
 @lru_cache(maxsize=1)
