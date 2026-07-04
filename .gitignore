@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Data (raw downloads + built vector store are not committed)
+data/raw/
+data/processed/
+
+# EXCEPTION: the small prebuilt demo index IS committed so the hosted Streamlit
+# demo has data on cold start (Streamlit Cloud has an ephemeral filesystem).
+# Built from public data only via scripts/build_demo_subset.py + ingest.
+!data/processed/chroma/
+!data/processed/chroma/**
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store

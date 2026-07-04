@@ -1,0 +1,31 @@
+# Runtime dependencies for the Streamlit Community Cloud demo.
+# Streamlit Cloud installs from this file. Kept in sync with pyproject.toml's
+# runtime deps, plus streamlit itself. Dev/eval extras are intentionally omitted.
+
+streamlit>=1.38.0
+
+# Orchestration
+langgraph>=0.2.0
+langchain-core>=0.3.0
+
+# Vector DB
+chromadb>=0.5.0
+
+# Embeddings + rerank (rerank used in Phase 2)
+cohere>=5.0.0
+
+# Generation
+anthropic>=0.39.0
+
+# Loaders
+pypdf>=4.0.0
+beautifulsoup4>=4.12.0
+markdown-it-py>=3.0.0
+
+# Token-aware chunking
+tiktoken>=0.7.0
+
+# Config + validation
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+pyyaml>=6.0
