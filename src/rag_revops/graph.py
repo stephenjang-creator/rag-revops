@@ -18,12 +18,16 @@ from langgraph.graph import END, StateGraph
 from .config import Settings, load_settings
 from .embeddings import CohereEmbedder
 from .generation import DECLINE_SENTINEL, AnswerResult, Generator
+from .hybrid import HybridRetriever
 from .retrieval import Retriever
 from .vectorstore import ChromaStore, RetrievedChunk
 
-# Below this best-match similarity, we treat retrieval as a miss and decline
-# rather than feeding weak context to the generator. Tune in Phase 3 against eval.
-_MIN_TOP_SCORE = 0.25
+# For pure DENSE retrieval, chunk scores are cosine similarity (~0..1), so we can
+# decline on a low best-match score. For HYBRID retrieval, scores are RRF values
+# on a different, compressed scale where an absolute threshold is meaningless —
+# there we route on presence of results and let the reranker (next step) own
+# quality-based declining. Tune the dense threshold in Phase 3 against eval.
+_MIN_DENSE_TOP_SCORE = 0.25
 
 
 class PipelineState(TypedDict, total=False):
@@ -37,7 +41,11 @@ class RagPipeline:
         self.settings = settings or load_settings()
         self.store = ChromaStore(self.settings.vectorstore)
         self.embedder = CohereEmbedder(self.settings.embeddings)
-        self.retriever = Retriever(self.settings, self.store, self.embedder)
+        self.use_hybrid = getattr(self.settings.retrieval, "use_hybrid", False)
+        if self.use_hybrid:
+            self.retriever = HybridRetriever(self.settings, self.store, self.embedder)
+        else:
+            self.retriever = Retriever(self.settings, self.store, self.embedder)
         self.generator = Generator(self.settings)
         self._graph = self._build()
 
@@ -62,10 +70,13 @@ class RagPipeline:
         }
 
     # --- routing -----------------------------------------------------------
-    @staticmethod
-    def _route(state: PipelineState) -> str:
+    def _route(self, state: PipelineState) -> str:
         chunks = state.get("chunks") or []
-        if not chunks or chunks[0].score < _MIN_TOP_SCORE:
+        if not chunks:
+            return "decline"
+        # Dense scores are comparable to an absolute similarity floor; RRF scores
+        # are not, so for hybrid we defer quality-based declining to later stages.
+        if not self.use_hybrid and chunks[0].score < _MIN_DENSE_TOP_SCORE:
             return "decline"
         return "generate"
 

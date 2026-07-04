@@ -76,3 +76,22 @@ class ChromaStore:
 
     def count(self) -> int:
         return self._collection.count()
+
+    def get_all(self) -> list[RetrievedChunk]:
+        """Return every stored chunk (no scores). Used to build the BM25 index
+        over the same corpus, so dense and lexical retrieval never drift apart."""
+        res = self._collection.get(include=["documents", "metadatas"])
+        out: list[RetrievedChunk] = []
+        for cid, text, meta in zip(
+            res["ids"], res["documents"], res["metadatas"], strict=True
+        ):
+            out.append(
+                RetrievedChunk(
+                    chunk_id=cid,
+                    doc_id=meta.get("doc_id", ""),
+                    text=text,
+                    score=0.0,
+                    metadata=meta,
+                )
+            )
+        return out

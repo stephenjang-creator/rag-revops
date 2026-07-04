@@ -18,6 +18,14 @@ _DEFAULT_CONFIG = _REPO_ROOT / "config" / "settings.yaml"
 
 
 class ChunkingConfig(BaseModel):
+    target_tokens: int = 650
+    min_tokens: int = 500
+    max_tokens: int = 800
+    overlap_tokens: int = 100
+    tokenizer: str = "cl100k_base"
+
+
+class EmbeddingsConfig(BaseModel):
     provider: str = "cohere"
     model: str = "embed-english-v3.0"
     input_type_document: str = "search_document"
@@ -30,14 +38,6 @@ class ChunkingConfig(BaseModel):
     backoff_cap_s: float = 60.0        # ceiling for any single backoff wait
 
 
-class EmbeddingsConfig(BaseModel):
-    provider: str = "cohere"
-    model: str = "embed-english-v3.0"
-    input_type_document: str = "search_document"
-    input_type_query: str = "search_query"
-    batch_size: int = 96
-
-
 class VectorStoreConfig(BaseModel):
     provider: str = "chroma"
     collection: str = "revops_docs"
@@ -47,6 +47,10 @@ class VectorStoreConfig(BaseModel):
 
 class RetrievalConfig(BaseModel):
     top_k: int = 5
+    # Phase 2 hybrid retrieval:
+    fetch_k: int = 20        # candidates each retriever pulls before fusion
+    rrf_k: int = 60          # RRF damping constant (convention: 60)
+    use_hybrid: bool = True  # False falls back to pure dense retrieval
 
 
 class GenerationConfig(BaseModel):

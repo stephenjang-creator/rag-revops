@@ -17,6 +17,8 @@ dependencies = [
     "langchain-core>=0.3.0",
     # Vector DB
     "chromadb>=0.5.0",
+    # Lexical retrieval (Phase 2 hybrid)
+    "rank-bm25>=0.2.2",
     # Embeddings + rerank (rerank used in Phase 2)
     "cohere>=5.0.0",
     # Generation
