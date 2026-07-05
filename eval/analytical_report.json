@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "n_questions": 3,
+    "mean_precision": 0.9553884711779448,
+    "mean_recall": 0.4346244131455399,
+    "mean_f1": 0.5964030639438379
+  },
+  "items": [
+    {
+      "question": "Which contracts restrict assignment?",
+      "category": "Anti-Assignment",
+      "n_gold": 71,
+      "n_predicted": 35,
+      "n_correct": 34,
+      "precision": 0.9714285714285714,
+      "recall": 0.4788732394366197,
+      "f1": 0.6415094339622641
+    },
+    {
+      "question": "Which contracts grant audit rights?",
+      "category": "Audit Rights",
+      "n_gold": 40,
+      "n_predicted": 19,
+      "n_correct": 17,
+      "precision": 0.8947368421052632,
+      "recall": 0.425,
+      "f1": 0.576271186440678
+    },
+    {
+      "question": "Which contracts cap liability?",
+      "category": "Cap On Liability",
+      "n_gold": 50,
+      "n_predicted": 20,
+      "n_correct": 20,
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1": 0.5714285714285715
+    }
+  ]
+}

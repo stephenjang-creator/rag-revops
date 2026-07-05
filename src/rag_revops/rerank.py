@@ -58,7 +58,7 @@ class CohereReranker:
             raise RuntimeError("COHERE_API_KEY is not set (see .env.example).")
         self._client = cohere.Client(api_key=secrets.cohere_api_key)
 
-    def _rerank_with_retry(self, query: str, documents: list[str]):
+    def _rerank_with_retry(self, query: str, documents: list[str], top_n: int):
         attempt = 0
         while True:
             try:
@@ -66,7 +66,7 @@ class CohereReranker:
                     query=query,
                     documents=documents,
                     model=self.cfg.model,
-                    top_n=min(self.cfg.top_n, len(documents)),
+                    top_n=min(top_n, len(documents)),
                 )
             except Exception as exc:  # noqa: BLE001 - retry rate limits, else raise
                 if not _is_rate_limit(exc) or attempt >= self.cfg.max_retries:
@@ -79,11 +79,16 @@ class CohereReranker:
                 )
                 time.sleep(wait)
 
-    def rerank(self, query: str, chunks: list[_HasText]) -> list[RerankedChunk]:
+    def rerank(
+        self, query: str, chunks: list[_HasText], top_n: int | None = None
+    ) -> list[RerankedChunk]:
         if not chunks:
             return []
+        # Default to the single-doc top_n cap; callers (e.g. analytical mode) can
+        # override to get scores for ALL chunks by passing top_n=len(chunks).
+        effective_top_n = top_n if top_n is not None else self.cfg.top_n
         documents = [c.text for c in chunks]
-        resp = self._rerank_with_retry(query, documents)
+        resp = self._rerank_with_retry(query, documents, effective_top_n)
 
         out: list[RerankedChunk] = []
         for item in resp.results:

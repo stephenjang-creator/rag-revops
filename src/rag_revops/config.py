@@ -66,6 +66,22 @@ class RerankConfig(BaseModel):
     backoff_cap_s: float = 60.0
 
 
+class AnalyticalConfig(BaseModel):
+    """Cross-corpus 'which contracts have X' retrieval (contract-level).
+
+    Membership is decided by an LLM judge (not a rerank threshold), because the
+    cross-encoder scores paraphrased legal clauses ('without cause', 'sole
+    discretion') near zero and would drop most genuine matches. The reranker is
+    used only to ORDER which contracts the judge sees first.
+    """
+    # Wide dense pool so every contract is represented at least once. Sized to
+    # exceed the chunk count; Chroma caps at the collection size.
+    pool_size: int = 2000
+    chunks_per_contract: int = 4  # chunks per contract handed to the LLM judge
+    max_contracts: int = 100      # candidates passed to the judge (all contracts)
+    judge_batch_size: int = 10    # smaller batches = more careful per-candidate judging
+
+
 class GenerationConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-6"
@@ -88,6 +104,12 @@ class EvalConfig(BaseModel):
     )
 
 
+class AnalyticalEvalConfig(BaseModel):
+    # Set-based eval (precision/recall/F1 over contract sets). Deterministic — no
+    # judge calls — so it's cheap enough for a CI gate. Gate on mean F1.
+    min_f1: float = 0.60
+
+
 class PromptConfig(BaseModel):
     system: str
     user_template: str
@@ -101,8 +123,10 @@ class Settings(BaseModel):
     vectorstore: VectorStoreConfig = Field(default_factory=VectorStoreConfig)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     rerank: RerankConfig = Field(default_factory=RerankConfig)
+    analytical: AnalyticalConfig = Field(default_factory=AnalyticalConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
+    analytical_eval: AnalyticalEvalConfig = Field(default_factory=AnalyticalEvalConfig)
     prompts: PromptConfig
 
 
