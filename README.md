@@ -1,171 +1,167 @@
-# PolicyLens — Grounded Q&A over Revenue Operations Documents
+# Deal Desk Helper
 
-**A retrieval-augmented question-answering system that lets a rep, deal-desk analyst, or CS manager ask plain-English questions about contract terms, SLAs, and policy language — and get an answer with an exact citation, or an honest "I can't find that."**
+**A citation-grounded contract-analysis tool that answers two questions a Deal Desk actually asks: _"what does this contract say about X?"_ and _"which contracts across our whole book have clause X?"_ — and bridges the gap between how a business user phrases a question and how contracts are actually written.**
 
-Built to reduce the escalation tax: the constant back-and-forth where a rep pings Deal Desk to ask "can this customer terminate for convenience?" or "what's our data-return obligation on churn?" Most of those answers already live in the MSA, the SLA, or a service description. This system finds the passage, answers from it, and cites where it came from — so the human stays in the loop with a source to verify, never a hallucinated clause.
+Built to cut the escalation tax — the constant back-and-forth where a rep pings Deal Desk to ask "can this customer terminate for convenience?" or "which of our agreements have uncapped liability?" Those answers live in the contracts; this tool finds them, cites the exact passage, and stays honest — it declines rather than guessing when the documents don't support an answer.
 
-> **AI-first, human-in-the-loop.** The system is designed to *decline* rather than guess. If retrieved passages don't support an answer, it says so. Citations are enforced, not decorative.
+> **AI-first, human-in-the-loop.** Answers are grounded in retrieved passages and cite their source. When support is weak, the system says so instead of hallucinating a clause. Built in Python.
 
 ---
 
 ## 🔗 Live demo
 
-**[Try it here → `https://<your-app>.streamlit.app`](https://share.streamlit.io)** *(update this URL after deploying)*
+**[Try it → `https://<your-app>.streamlit.app`](https://share.streamlit.io)** *(update after deploying)*
 
-The hosted demo is **bring-your-own-key**: it bakes in no API keys. Paste your own
-Anthropic + Cohere keys into the sidebar — they stay in your browser session only,
-are never logged, and are never committed. Reviewers without keys still see the full
-UI, the corpus, the retrieved passages, and the citation / decline behavior.
+Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthropic + Cohere keys into the sidebar — they live only in your browser session, never logged, never committed. Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.
 
-*(A short walkthrough GIF goes here for reviewers who don't have keys.)*
+*(Walkthrough GIF here.)*
 
 ---
 
-## Why this exists (the ops problem)
+## What it does
 
-| Without | With PolicyLens |
-|---|---|
-| Rep escalates to Deal Desk → wait → context-switch | Rep self-serves the answer in seconds |
-| Answer buried in a 40-page PDF | Top passage surfaced with section reference |
-| "I think our cap is 12 months of fees?" | Grounded answer + exact clause, or an explicit "not found" |
+**Two modes over the same corpus:**
+
+**1. Ask about a contract** — pick one contract (searchable list) and ask in plain English. The answer draws only from that contract, cites the passages it used with inline `[n]` markers, and declines when the contract doesn't cover the question. A "search all contracts" toggle widens the scope when you want it.
+
+**2. Find contracts across the corpus** — "which contracts allow termination for convenience?" scans every contract and returns the matching set, each with a one-line reason and citation. This is the harder capability, and the interesting one: it recognizes clauses that mean the same thing but are worded completely differently.
+
+**Query rewriting** sits in front of both. A Deal Desk user types "can either party do a TFC" and the system reformulates it to "Can either party terminate this agreement for convenience, and what notice is required?" before retrieving — expanding abbreviations and jargon into contract language, and showing the interpretation so the user can see and trust what was searched.
+
+---
+
+## The problem that makes this non-trivial
+
+The hard part of "which contracts have X" is that **contracts rarely use the query's words.** A search for _termination for convenience_ has to match:
+
+- "Either party may terminate this Agreement **without cause** upon thirty days' notice"
+- "...terminate **in its sole discretion**..."
+- "...terminate **for any reason**..."
+- "...terminate **without penalty**..."
+
+A keyword search misses all of these. A vector/embedding search scores them low — they don't resemble the phrase _termination for convenience_. Even a cross-encoder reranker (the standard precision tool) scores these paraphrased clauses near **zero**, because it judges surface similarity, not legal meaning.
+
+The fix is to use an **LLM as the membership judge** for cross-corpus queries: Claude reads each contract's excerpts and decides — with explicit legal-equivalence knowledge — whether it genuinely satisfies the criterion, recognizing that "terminate without cause" _is_ termination for convenience. The reranker still orders which contracts the judge sees; it no longer gates membership. This recovered matches that pure retrieval scored at zero (16 vs. 4 on the termination query in one corpus).
+
+---
+
+## Architecture
+
+```
+Query
+  |
+  v
+Query rewriting (Claude)  -- "TFC" -> "termination for convenience..."
+  |
+  +---------------- single-contract mode ----------------+
+  |                                                       |
+  |   Hybrid retrieval (BM25 + vector, RRF fusion)        |
+  |   -> Cohere cross-encoder rerank                      |
+  |   -> citation-enforced generation (Claude)            |
+  |   -> answer with [n] citations, or decline            |
+  |                                                       |
+  +---------------- cross-corpus mode --------------------+
+                                                          |
+      Wide dense fetch (every contract represented)       |
+      -> one representative chunk per contract            |
+      -> rerank for ORDERING (not membership)             |
+      -> LLM judge decides membership by legal meaning    |
+      -> matching contracts, each with reason + citation  |
+```
+
+**Tech stack** (Python throughout):
+
+| Layer | Choice | Why |
+|---|---|---|
+| Orchestration | **LangGraph** | Explicit state graph — the decline branch is a first-class conditional edge, not buried logic |
+| Retrieval | **Hybrid: BM25 + vector, RRF fusion** | BM25 catches exact terms (section refs, figures); vectors catch paraphrase; RRF fuses on rank, not incompatible scores |
+| Vector store | **ChromaDB** | Local, persistent, metadata filtering (enables single-contract scoping) |
+| Embeddings + rerank | **Cohere** (`embed-v3`, `rerank-v3`) | Strong reranker; one vendor for both |
+| Generation + judge | **Anthropic (Claude)** | Strong instruction-following for grounding; legal-equivalence reasoning the reranker lacks |
+| Evaluation | **Custom LLM-as-judge + set-based P/R/F1** | Transparent, no heavy framework dependency |
+| UI | **Streamlit** | Python-native, bring-your-own-key hosted demo |
+
+Prompts live in a **versioned config file** (`config/settings.yaml`), not scattered string literals — changing a prompt is a reviewable diff.
+
+---
+
+## The engineering story (how the hard parts got solved)
+
+The cross-corpus capability didn't work on the first build. Getting it right meant diagnosing three distinct failures **with data**, not guesswork — each ruled out with a targeted experiment before any fix:
+
+**1. A silent result cap.** The reranker returned only its top-5 results regardless of how many contracts were passed in — so 95 of 100 contracts were dropped before scoring, and the eval's default-fill made them look like zero-relevance. Diagnosed by instrumenting the reranked-result count; fixed by threading a `top_n` override so analytical mode scores every contract while single-doc mode keeps its cap.
+
+**2. A semantic gap.** With the cap fixed, the reranker still scored paraphrased clauses ("without cause," "sole discretion") at ~0.00 — indistinguishable from irrelevant text. A controlled test (feeding the reranker known clause text) proved the cross-encoder was working correctly; it simply has no legal knowledge that "without cause" means "for convenience." Fixed by moving membership from the reranker's score to an **LLM judge** that reasons about equivalence.
+
+**3. Polysemy, correctly handled.** Testing "Net 30 payment terms" surfaced a subtle win: a grep for "30 days" returns 70 contracts, but most are cure periods, notice windows, or reporting deadlines — not payment terms. The LLM judge correctly _disambiguates_, confirming only the contracts where "30 days" governs payment. A keyword search can't do this; the judge can.
+
+The takeaway that generalized: **the query-rewriting front-end and the LLM-judge back-end give jargon-tolerance at both ends** — the question going in and the clause matching coming out.
+
+---
+
+## Evaluation
+
+Quality is measured, not asserted.
+
+- **Golden set from CUAD annotations.** The [Contract Understanding Atticus Dataset](https://www.atticusprojectai.org/cuad) (510 real contracts, expert clause annotations, CC BY 4.0) provides ground truth: which contracts have which clause. The golden set is built directly from those annotations.
+- **Single-doc faithfulness** — a custom LLM-as-judge evaluator decomposes each answer into claims and checks each against the retrieved context (declines excluded, since faithfulness on a non-answer is meaningless).
+- **Cross-corpus precision/recall/F1** — set comparison against the CUAD ground-truth sets. Deterministic (no judge calls), so it's cheap enough to gate CI.
+- **CI faithfulness gate** — GitHub Actions runs the eval on every pull request and fails the build if faithfulness drops below threshold, so a well-meaning change to chunking or a prompt can't silently degrade quality.
+
+---
 
 ## Data provenance (zero proprietary data)
 
-Every document in this project is **public**. Nothing from any employer is used.
-
-- **CUAD** (Contract Understanding Atticus Dataset) — 510 real commercial contracts with expert clause annotations, released under **CC BY 4.0**. Used as both corpus and the backbone of the evaluation set.
-- **Published SaaS agreements / SLAs** from vendors who post them publicly (e.g., model agreements and legal pages). These are copyrighted; this repo ships a **downloader script** and links to sources rather than redistributing raw PDFs.
-
-See [`docs/DATA_PROVENANCE.md`](docs/DATA_PROVENANCE.md) for the licensing note and attribution.
+Every document is **public**. Nothing from any employer is used. The corpus and evaluation set are built from **CUAD** (CC BY 4.0). Handling licensing and provenance as a first-class concern — rather than quietly ingesting whatever's available — is itself part of the deliverable: a contract-analysis tool that can't say where its knowledge came from is a governance liability. See [`docs/DATA_PROVENANCE.md`](docs/DATA_PROVENANCE.md).
 
 ---
 
-## Architecture (three phases)
-
-**Phase 1 — Fundamentals (this scaffold)**
-Ingest PDF / Markdown / HTML → token-aware chunking (500–800 tokens, 100 overlap) → ChromaDB vector store → retrieval pipeline that pulls top-k chunks and generates a **cited** answer.
-
-**Phase 2 — Production quality** *(planned)*
-Hybrid retrieval (BM25 + vector) → Cohere cross-encoder re-ranker → citation enforcement (decline when unsupported) → all prompts in versioned config.
-
-**Phase 3 — Faithfulness measurement** *(planned)*
-50–200 human-verified Q/A pairs → offline faithfulness eval (Ragas) → CI gate that fails the build when quality drops below threshold.
-
-## Tech stack
-
-- **Orchestration:** LangGraph (explicit state graph — makes the "decline to answer" branch a first-class conditional edge)
-- **Vector DB:** ChromaDB
-- **Embeddings + Reranker:** Cohere (`embed` + `rerank`)
-- **Generation:** Anthropic (Claude)
-- **Evaluation:** Ragas
-- **Language:** Python 3.11+
-
-## Quickstart
+## Run it locally
 
 ```bash
-# 1. Install
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate    # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
+cp .env.example .env          # add ANTHROPIC_API_KEY + COHERE_API_KEY
 
-# 2. Set keys (see .env.example)
-cp .env.example .env   # add ANTHROPIC_API_KEY and COHERE_API_KEY
+# Build the corpus + index from the CUAD file
+python scripts/extract_cuad.py --input path/to/CUADv1.json --contracts-out data/raw/contracts --eval-out eval/eval_seed.jsonl --max-contracts 100
+python -m rag_revops.ingest --source data/raw/contracts
 
-# 3. Fetch public corpus
-python scripts/download_corpus.py
+# CLI
+python -m rag_revops.query "How is liability capped?"
+python -m rag_revops.query_analytical "Which contracts allow termination for convenience?"
 
-# 4. Ingest + chunk + embed into Chroma
-python -m rag_revops.ingest --source data/raw --persist data/processed/chroma
+# Or the full UI (both modes)
+streamlit run app.py
+```
 
-# 5. Ask a question
-python -m rag_revops.query "Can a customer terminate for convenience, and with how much notice?"
+## Evaluation & tests
+
+```bash
+pytest                                          # unit tests (retrieval, fusion, judge logic)
+python -m eval.build_golden --seed eval/eval_seed.jsonl --out eval/golden.jsonl
+python -m eval.run_eval --golden eval/golden.jsonl --limit 15          # faithfulness
+python -m eval.build_analytical_golden --seed eval/eval_seed.jsonl --out eval/analytical_golden.jsonl
+python -m eval.run_analytical_eval --golden eval/analytical_golden.jsonl --limit 3   # set-based P/R/F1
 ```
 
 ## Repo layout
 
 ```
-rag-revops/
-├── config/
-│   └── settings.yaml         # all tunables: chunk size, top_k, model names, prompts
-├── src/rag_revops/
-│   ├── config.py             # typed settings loader (Pydantic)
-│   ├── loaders.py            # PDF / MD / HTML → normalized text
-│   ├── chunking.py           # token-aware splitter (500–800 tok, 100 overlap)
-│   ├── embeddings.py         # Cohere embedding wrapper
-│   ├── vectorstore.py        # Chroma persistence + query
-│   ├── ingest.py             # CLI: load → chunk → embed → store
-│   ├── retrieval.py          # top-k retrieval
-│   ├── generation.py         # cited-answer generation (Anthropic)
-│   ├── graph.py              # LangGraph pipeline wiring
-│   └── query.py              # CLI: ask a question
-├── scripts/
-│   └── download_corpus.py    # fetch CUAD + public agreements
-├── tests/
-│   ├── test_chunking.py
-│   └── test_loaders.py
-├── docs/
-│   └── DATA_PROVENANCE.md
-├── .github/workflows/ci.yml  # lint + tests (eval gate added in Phase 3)
-├── pyproject.toml
-└── .env.example
+src/rag_revops/
+  loaders.py chunking.py embeddings.py vectorstore.py   # ingestion + storage
+  bm25.py hybrid.py rerank.py retrieval.py              # retrieval
+  query_rewrite.py                                       # jargon -> contract language
+  graph.py generation.py query.py                        # single-doc pipeline (LangGraph)
+  analytical.py analytical_generation.py query_analytical.py  # cross-corpus + LLM judge
+eval/
+  build_golden.py run_eval.py judge.py                   # faithfulness eval
+  build_analytical_golden.py run_analytical_eval.py      # set-based eval
+config/settings.yaml                                     # versioned prompts + tunables
+app.py                                                   # Streamlit UI (both modes)
+.github/workflows/ci.yml                                 # tests + faithfulness gate
 ```
-
-## Deploying the live demo (Streamlit Community Cloud)
-
-The demo runs from this repo with a **committed, prebuilt vector index** (Streamlit
-Cloud's filesystem is ephemeral, so the index ships in the repo). Build it once
-locally, then deploy.
-
-```bash
-# 1. Fetch corpus and build a small, public demo subset
-python scripts/download_corpus.py
-#    unzip CUAD: data/raw/cuad/data.zip -> data/raw/cuad/full_contract_txt/
-python scripts/build_demo_subset.py --max-contracts 18
-
-# 2. Build the index locally (needs COHERE_API_KEY for embeddings)
-python -m rag_revops.ingest --source data/raw/demo_subset
-
-# 3. Commit the prebuilt index (deliberate .gitignore exception)
-git add -f data/processed/chroma
-git commit -m "Add prebuilt demo vector index (public data only)"
-git push
-
-# 4. Deploy: share.streamlit.io -> New app -> point at this repo, main file app.py
-```
-
-Streamlit Cloud installs from `requirements.txt` and reruns on every push. No keys
-are stored on the platform — the app reads keys the visitor enters in the sidebar.
-
-**Cost/exposure:** none to you. The demo spends the *visitor's* API credits, and
-your keys never touch the hosted runtime.
-
-## Continuous evaluation (faithfulness gate)
-
-Every pull request runs the offline eval and **fails the build if mean faithfulness
-drops below `eval.min_faithfulness`** (0.85). This is what keeps a well-meaning
-change to chunking, retrieval, or a prompt from silently degrading answer quality —
-the pipeline is guarded by a measured quality bar, not vibes.
-
-The gate (`.github/workflows/ci.yml`, job `faithfulness-gate`) runs a bounded subset
-(default 15 items) on each PR to keep cost small, and can be run over the full set
-on demand via the Actions "Run workflow" button (`workflow_dispatch`, `eval_limit=0`).
-The JSON report is uploaded as a build artifact.
-
-**One-time setup to enable the gate:**
-
-1. Add API keys as repository secrets (Settings → Secrets and variables → Actions):
-   `ANTHROPIC_API_KEY` and `COHERE_API_KEY`. They are never committed; the job reads
-   them from the secrets context and skips cleanly if they're absent (e.g. fork PRs).
-2. Commit the golden set and the prebuilt index so CI has data to evaluate against:
-   ```bash
-   git add -f eval/golden.jsonl data/processed/chroma
-   git commit -m "Add golden eval set + prebuilt index for CI gate"
-   ```
-
-Note on the judge: the evaluator uses Claude directly (no Ragas) — see
-`eval/judge.py`. Generating and judging with the same model family carries a mild
-self-preference bias, an accepted tradeoff for a portfolio eval; the judge model is
-a single config value (`eval.judge_model`) if an independent grader is preferred.
 
 ## License
 
-Code: MIT. Data: see `docs/DATA_PROVENANCE.md` (CUAD is CC BY 4.0; vendor agreements are linked, not redistributed).
+Code: MIT. Data: CUAD is CC BY 4.0 — see `docs/DATA_PROVENANCE.md`.

@@ -1,0 +1,15 @@
+# Streamlit theme — "operator" aesthetic to match the GTM portfolio site.
+# Dark, restrained, engineering-credible. Tune the hex values against the live
+# site (https://stephenjang-creator.github.io/gtm-portfolio/) if you want an exact
+# color match — these are a close approximation of that terminal/operator feel.
+
+[theme]
+base = "dark"
+primaryColor = "#4ade80"          # signal green — the "LIVE" / accent color
+backgroundColor = "#0e1117"       # near-black operator background
+secondaryBackgroundColor = "#1a1f2b"  # panels, sidebar, expanders
+textColor = "#e6e9ef"             # soft off-white
+font = "monospace"                # terminal/operator type
+
+[server]
+headless = true

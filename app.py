@@ -33,12 +33,44 @@ st.set_page_config(
     page_title="Deal Desk Helper — contract analysis", page_icon="📄", layout="wide"
 )
 
+# --- Operator aesthetic (matches the GTM portfolio site) --------------------
+st.markdown(
+    """
+    <style>
+      /* Tighten headings, monospace accent, operator feel */
+      h1, h2, h3 { letter-spacing: -0.5px; font-weight: 700; }
+      .dd-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.72rem; letter-spacing: 2px; text-transform: uppercase;
+        color: #4ade80; margin-bottom: 0.2rem;
+      }
+      .dd-tag {
+        display: inline-block; font-family: ui-monospace, monospace;
+        font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase;
+        padding: 2px 8px; border-radius: 3px; border: 1px solid #4ade80;
+        color: #4ade80; margin-left: 8px; vertical-align: middle;
+      }
+      .dd-rule { height: 1px; background: #2a2f3b; margin: 0.75rem 0 1.25rem; }
+      /* Primary buttons: operator green */
+      .stButton > button[kind="primary"] {
+        background: #4ade80; color: #0e1117; border: none; font-weight: 700;
+      }
+      /* Expanders / panels: subtle border */
+      .streamlit-expanderHeader { font-family: ui-monospace, monospace; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown('<div class="dd-eyebrow">Operator tool · Built in Python</div>', unsafe_allow_html=True)
 st.title("📄 Deal Desk Helper")
 st.caption(
     "Citation-grounded analysis over **public** contract data (CUAD, CC BY 4.0). "
     "Ask about a single contract, or find which contracts across the corpus contain "
-    "a given clause — even when they phrase it differently from your query."
+    "a given clause — even when they phrase it differently from your query. "
+    "**Human-in-the-loop by design: it cites its sources, or declines rather than guessing.**"
 )
+st.markdown('<div class="dd-rule"></div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.header("🔑 Your API keys")
