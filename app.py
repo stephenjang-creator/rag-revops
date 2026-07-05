@@ -164,15 +164,17 @@ def _rewrite_and_show(raw_question: str) -> str:
         st.info(f"🔎 Interpreted as: **{rq.rewritten}**")
     return rq.rewritten
 
+if not keys_ready:
+    st.info("👈 Enter your Anthropic and Cohere API keys in the sidebar to begin.")
+    st.stop()
+
+# From here down, keys are present — show the full query interface.
 mode = st.radio(
     "Mode",
     [MODE_SINGLE, MODE_ANALYTICAL],
     horizontal=True,
     label_visibility="collapsed",
 )
-
-if not keys_ready:
-    st.info("👈 Enter your Anthropic and Cohere API keys in the sidebar to run a live query.")
 
 
 # ===========================================================================
@@ -186,22 +188,19 @@ def render_single_doc() -> None:
         "Or toggle **Search all contracts** to ask across the whole corpus."
     )
 
-    # The contract picker needs the store, which needs keys. Until keys are in,
-    # show the query UI disabled with a prompt.
+    # Keys are guaranteed present here (app st.stop()s earlier otherwise).
     contracts: list[str] = []
-    if keys_ready:
-        try:
-            _, store = _build_single_doc(anthropic_key[-4:] + cohere_key[-4:])
-            contracts = store.list_contracts()
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Couldn't load contracts: {exc}")
-            return
+    try:
+        _, store = _build_single_doc(anthropic_key[-4:] + cohere_key[-4:])
+        contracts = store.list_contracts()
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Couldn't load contracts: {exc}")
+        return
 
     search_all = st.toggle(
         "Search all contracts (instead of one)",
         value=False,
         help="On: ask across the entire corpus. Off: restrict to the contract you pick.",
-        disabled=not keys_ready,
     )
 
     selected: str | None = None
@@ -233,7 +232,7 @@ def render_single_doc() -> None:
             key="sd_input",
         )
     with cols[1]:
-        ask = st.button("Ask", type="primary", use_container_width=True, disabled=not keys_ready)
+        ask = st.button("Ask", type="primary", use_container_width=True)
 
     ex_cols = st.columns(len(examples))
     for i, ex in enumerate(examples):
@@ -249,7 +248,7 @@ def render_single_doc() -> None:
             args=("sd_input", ex),
         )
 
-    if ask and keys_ready and question.strip():
+    if ask and question.strip():
         try:
             pipeline, _ = _build_single_doc(anthropic_key[-4:] + cohere_key[-4:])
             run_query = _rewrite_and_show(question.strip())
@@ -317,7 +316,7 @@ def render_analytical() -> None:
         )
     with cols[1]:
         find = st.button(
-            "Find", type="primary", use_container_width=True, disabled=not keys_ready
+            "Find", type="primary", use_container_width=True
         )
 
     ex_cols = st.columns(len(examples))
@@ -331,7 +330,7 @@ def render_analytical() -> None:
             args=("an_input", ex),
         )
 
-    if find and keys_ready and question.strip():
+    if find and question.strip():
         try:
             retriever, generator = _build_analytical(anthropic_key[-4:] + cohere_key[-4:])
             run_query = _rewrite_and_show(question.strip())
