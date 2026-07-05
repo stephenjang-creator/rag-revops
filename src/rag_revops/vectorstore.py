@@ -51,10 +51,17 @@ class ChromaStore:
             ],
         )
 
-    def query(self, query_embedding: list[float], top_k: int) -> list[RetrievedChunk]:
+    def query(
+        self, query_embedding: list[float], top_k: int, doc_id: str | None = None
+    ) -> list[RetrievedChunk]:
+        # Optionally restrict retrieval to a single contract via metadata filter.
+        # This is what lets single-doc mode answer about ONE contract instead of
+        # blending passages from many.
+        where = {"doc_id": doc_id} if doc_id else None
         res = self._collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
+            where=where,
             include=["documents", "metadatas", "distances"],
         )
         out: list[RetrievedChunk] = []
@@ -76,6 +83,12 @@ class ChromaStore:
 
     def count(self) -> int:
         return self._collection.count()
+
+    def list_contracts(self) -> list[str]:
+        """Return the sorted distinct contract (doc_id) list, for a UI picker."""
+        res = self._collection.get(include=["metadatas"])
+        ids = {m.get("doc_id", "") for m in res["metadatas"] if m.get("doc_id")}
+        return sorted(ids)
 
     def get_all(self) -> list[RetrievedChunk]:
         """Return every stored chunk (no scores). Used to build the BM25 index

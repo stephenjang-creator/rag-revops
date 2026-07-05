@@ -33,6 +33,7 @@ _MIN_DENSE_TOP_SCORE = 0.25
 
 class PipelineState(TypedDict, total=False):
     question: str
+    doc_id: str | None
     chunks: list[RetrievedChunk]
     result: AnswerResult
 
@@ -54,7 +55,13 @@ class RagPipeline:
 
     # --- nodes -------------------------------------------------------------
     def _retrieve(self, state: PipelineState) -> PipelineState:
-        chunks = self.retriever.retrieve(state["question"])
+        doc_id = state.get("doc_id")
+        # HybridRetriever accepts a doc_id filter; the pure-dense fallback doesn't,
+        # so only pass it when hybrid is active.
+        if self.use_hybrid:
+            chunks = self.retriever.retrieve(state["question"], doc_id=doc_id)
+        else:
+            chunks = self.retriever.retrieve(state["question"])
         return {"chunks": chunks}
 
     def _rerank(self, state: PipelineState) -> PipelineState:
@@ -122,8 +129,11 @@ class RagPipeline:
         g.add_edge("decline", END)
         return g.compile()
 
-    def ask(self, question: str) -> AnswerResult:
-        final = self._graph.invoke({"question": question})
+    def ask(self, question: str, doc_id: str | None = None) -> AnswerResult:
+        """Answer a question. If doc_id is given, retrieval is restricted to that
+        single contract (used by the UI's 'ask about one contract' mode); otherwise
+        it searches the whole corpus."""
+        final = self._graph.invoke({"question": question, "doc_id": doc_id})
         return final["result"]
 
     def ask_with_contexts(self, question: str) -> tuple[AnswerResult, list[str]]:

@@ -1,4 +1,4 @@
-# PolicyLens configuration.
+# Deal Desk Helper configuration.
 # Everything tunable lives here. Prompts are part of the system architecture,
 # so they are versioned config — not string literals buried in code.
 
@@ -53,7 +53,7 @@ prompts:
   decline_message: "I couldn't find support for that in the provided documents."
 
   system: |
-    You are PolicyLens, an assistant that answers questions about revenue-operations
+    You are Deal Desk Helper, an assistant that answers questions about revenue-operations
     documents: SaaS agreements, SLAs, service descriptions, and policy language.
 
     Rules you must follow:

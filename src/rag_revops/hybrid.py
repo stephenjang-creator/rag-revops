@@ -87,7 +87,11 @@ class HybridRetriever:
         self.bm25 = bm25 or BM25Retriever.from_store(store)
 
     def retrieve(
-        self, query: str, top_k: int | None = None, fetch_k: int | None = None
+        self,
+        query: str,
+        top_k: int | None = None,
+        fetch_k: int | None = None,
+        doc_id: str | None = None,
     ) -> list[FusedChunk]:
         r = self.settings.retrieval
         top_k = top_k or r.top_k
@@ -95,7 +99,12 @@ class HybridRetriever:
         rrf_k = getattr(r, "rrf_k", 60)
 
         query_vec = self.embedder.embed_query(query)
-        dense = self.store.query(query_vec, top_k=fetch_k)
-        lexical = self.bm25.retrieve(query, top_k=fetch_k)
+        # Dense side filters via Chroma's metadata where-clause.
+        dense = self.store.query(query_vec, top_k=fetch_k, doc_id=doc_id)
+        # BM25 is an in-memory index over the whole corpus; fetch wider then
+        # post-filter to the target contract so both sides are scoped alike.
+        lexical = self.bm25.retrieve(query, top_k=fetch_k if not doc_id else fetch_k * 5)
+        if doc_id:
+            lexical = [c for c in lexical if c.doc_id == doc_id][:fetch_k]
 
         return reciprocal_rank_fusion(dense, lexical, k=rrf_k, top_k=top_k)
