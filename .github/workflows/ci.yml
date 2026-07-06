@@ -25,6 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          python -m pip install --upgrade "mypy>=1.10"
 
       - name: Lint
         run: ruff check src tests eval
@@ -66,7 +67,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip install --upgrade mypy
-          
+
+      - name: Run mypy
+        run: python -m mypy --python-version 3.12 src
+        
       - name: Verify secrets are present
         id: secretcheck
         run: |
