@@ -17,7 +17,7 @@ Design contract
 Enable Langfuse:
     LANGFUSE_PUBLIC_KEY=pk-lf-...
     LANGFUSE_SECRET_KEY=sk-lf-...
-    LANGFUSE_HOST=https://cloud.langfuse.com   # or self-hosted
+    LANGFUSE_HOST=https://us.cloud.langfuse.com   # optional; defaults to US region
 
 Control the local metrics sink (independent of Langfuse):
     RAG_METRICS_PATH=metrics/requests.jsonl    # default; set empty to disable
@@ -57,6 +57,11 @@ _ENABLED = False
 _langfuse = None
 _observe_impl: Callable | None = None
 
+# Langfuse data region host. Hardcoded to the US region — the keys and host must
+# match the region your project lives in (regions are fully isolated). Still
+# overridable via LANGFUSE_HOST if you ever move regions or self-host.
+_DEFAULT_LANGFUSE_HOST = "https://us.cloud.langfuse.com"
+
 if _tracing_requested():
     try:
         from langfuse import Langfuse
@@ -65,7 +70,7 @@ if _tracing_requested():
         _langfuse = Langfuse(
             public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
             secret_key=os.environ["LANGFUSE_SECRET_KEY"],
-            host=os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+            host=os.environ.get("LANGFUSE_HOST", _DEFAULT_LANGFUSE_HOST),
         )
         _observe_impl = _lf_observe
         _ENABLED = True
