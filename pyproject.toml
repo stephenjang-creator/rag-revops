@@ -87,7 +87,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 [tool.mypy]
-python_version = "3.11"
+# Match the runtime/CI Python (3.12). Recent NumPy stubs use PEP 695 `type`
+# statements, which mypy rejects when this is set below 3.12 — even on a 3.12
+# interpreter — failing before it reaches our own source.
+python_version = "3.12"
 warn_unused_ignores = true
 ignore_missing_imports = true
 
