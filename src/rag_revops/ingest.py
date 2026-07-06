@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -23,9 +24,18 @@ console = Console()
 
 @app.command()
 def main(
-    source: Path = typer.Option(Path("data/raw"), help="Directory of raw documents."),
-    persist: Path | None = typer.Option(None, help="Override Chroma persist dir."),
-    reset: bool = typer.Option(False, help="Drop and rebuild the collection."),
+    source: Annotated[
+        Path,
+        typer.Option(help="Directory of raw documents.")
+    ] = Path("data/raw"),
+    persist: Annotated[
+        Path | None,
+        typer.Option(help="Override Chroma persist dir.")
+    ] = None,
+    reset: Annotated[
+        bool,
+        typer.Option(help="Drop and rebuild the collection.")
+    ] = False,
 ) -> None:
     settings = load_settings()
     if persist is not None:

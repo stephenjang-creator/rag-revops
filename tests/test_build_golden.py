@@ -38,7 +38,7 @@ def test_groups_spans_by_contract_and_category(tmp_path: Path):
         ],
     )
     build(seed, out, max_per_category=10, limit=0)
-    items = [json.loads(l) for l in out.open()]
+    items = [json.loads(line) for line in out.open()]
 
     parties = next(i for i in items if i["category"] == "Parties")
     assert set(parties["gold_spans"]) == {"Alpha Corp", "Beta LLC"}
@@ -71,7 +71,7 @@ def test_stratification_caps_per_category(tmp_path: Path):
         [_seed_record(f"C{i}", "Parties", f"Party {i}", i) for i in range(5)],
     )
     build(seed, out, max_per_category=2, limit=0)
-    items = [json.loads(l) for l in out.open()]
+    items = [json.loads(line) for line in out.open()]
     assert len(items) == 2
 
 
@@ -85,5 +85,5 @@ def test_limit_truncates_total(tmp_path: Path):
          for cat in ("Parties", "Insurance", "Governing Law")],
     )
     build(seed, out, max_per_category=10, limit=4)
-    items = [json.loads(l) for l in out.open()]
+    items = [json.loads(line) for line in out.open()]
     assert len(items) == 4

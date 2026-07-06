@@ -51,7 +51,7 @@ def _prf(predicted: set[str], gold: set[str]) -> tuple[float, float, float]:
 
 def run(golden_path: Path, out_path: Path | None, limit: int, gate: bool) -> int:
     settings = load_settings()
-    golden = [json.loads(l) for l in golden_path.open(encoding="utf-8")]
+    golden = [json.loads(line) for line in golden_path.open(encoding="utf-8")]
     if limit > 0:
         golden = golden[:limit]
     if not golden:

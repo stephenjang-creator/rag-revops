@@ -58,7 +58,7 @@ def test_analytical_golden_min_contracts_filter(tmp_path: Path):
             fh.write(json.dumps(r) + "\n")
 
     build_analytical(seed, out, min_contracts=3)
-    items = [json.loads(l) for l in out.open()]
+    items = [json.loads(line) for line in out.open()]
     categories = {i["category"] for i in items}
     assert "Governing Law" in categories
     assert "Non-Compete" not in categories

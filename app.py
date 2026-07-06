@@ -21,13 +21,15 @@ import os
 import sys
 from pathlib import Path
 
+import streamlit as st
+
 # Streamlit Cloud installs runtime deps from requirements.txt but does not run an
 # editable install of this package, so make the src/ layout importable directly.
 _SRC = Path(__file__).resolve().parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-import streamlit as st
+
 
 st.set_page_config(
     page_title="Deal Desk Helper — contract analysis", page_icon="📄", layout="wide"

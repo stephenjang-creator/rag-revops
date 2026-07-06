@@ -7,8 +7,6 @@ indices back to the correct source chunks, sorting, and metadata preservation.
 
 from __future__ import annotations
 
-import sys
-import types
 from dataclasses import dataclass
 
 import pytest

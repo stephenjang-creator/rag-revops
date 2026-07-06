@@ -39,7 +39,7 @@ class BM25Retriever:
         self._bm25 = BM25Okapi(self._corpus_tokens)
 
     @classmethod
-    def from_store(cls, store: ChromaStore) -> "BM25Retriever":
+    def from_store(cls, store: ChromaStore) -> BM25Retriever:
         return cls(store.get_all())
 
     def retrieve(self, query: str, top_k: int) -> list[RetrievedChunk]:

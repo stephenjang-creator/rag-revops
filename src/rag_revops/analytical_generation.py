@@ -97,7 +97,6 @@ class AnalyticalGenerator:
         """Ask the model to enumerate the equivalent ways a contract might express
         the criterion, so the judge recognizes paraphrases for ANY query — not just
         the one clause type we happened to hardcode."""
-        cfg = self.settings.generation
         resp = self._client.messages.create(
             model=model,
             max_tokens=400,

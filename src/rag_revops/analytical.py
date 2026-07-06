@@ -25,7 +25,6 @@ we rerank ~100 chunks, one per contract.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from .config import Settings

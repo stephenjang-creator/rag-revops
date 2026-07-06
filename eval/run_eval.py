@@ -71,12 +71,15 @@ def run(golden_path: Path, out_path: Path | None, limit: int, gate: bool) -> int
             "declined": result.declined,
         }
         (declined_rows if result.declined else rows).append(row)
-        print(f"  [{i}/{len(golden)}] {'DECLINED' if result.declined else 'answered'}: {question[:60]}")
-
-    print(
-        f"\nAnswered: {len(rows)}  |  Declined: {len(declined_rows)} "
-        f"(declines excluded from faithfulness)"
-    )
+        status = "DECLINED" if result.declined else "answered"
+        print(
+            f"  [{i}/{len(golden)}] "
+            f"{status}: {question[:60]}"
+        )
+        print(
+            f"\nAnswered: {len(rows)}  |  Declined: {len(declined_rows)} "
+            f"(declines excluded from faithfulness)"
+        )
 
     if not rows:
         print("All items were declined — no answered items to score.", file=sys.stderr)
