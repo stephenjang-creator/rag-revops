@@ -57,10 +57,17 @@ def _format_context(chunks: list[RetrievedChunk]) -> tuple[str, list[Citation]]:
 class Generator:
     def __init__(self, settings: Settings):
         self.settings = settings
-        secrets = load_secrets()
-        if not secrets.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
-        self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        # Client created lazily on first use so construction needs no key (tests
+        # can build the object and stub the call); real calls require the key.
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            secrets = load_secrets()
+            if not secrets.anthropic_api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
+            self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        return self._client
 
     def generate(self, question: str, chunks: list[RetrievedChunk]) -> AnswerResult:
         cfg = self.settings.generation
@@ -79,7 +86,7 @@ class Generator:
         context, citations = _format_context(chunks)
         user_msg = prompts.user_template.format(question=question, context=context)
 
-        resp = self._client.messages.create(
+        resp = self._get_client().messages.create(
             model=cfg.model,
             max_tokens=cfg.max_tokens,
             temperature=cfg.temperature,

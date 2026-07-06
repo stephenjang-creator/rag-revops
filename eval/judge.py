@@ -58,15 +58,23 @@ def _parse_json(text: str) -> dict | None:
 class ClaudeJudge:
     def __init__(self, settings: Settings):
         self.settings = settings
-        secrets = load_secrets()
-        if not secrets.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
-        self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        # Client is created lazily on first use, not here — so tests can construct
+        # the judge (and stub _ask_json) without a key; only real API calls require
+        # ANTHROPIC_API_KEY.
+        self._client = None
         self._model = settings.eval.judge_model
         self._max_tokens = settings.eval.judge_max_tokens
 
+    def _get_client(self):
+        if self._client is None:
+            secrets = load_secrets()
+            if not secrets.anthropic_api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
+            self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        return self._client
+
     def _ask_json(self, system: str, user: str) -> dict | None:
-        resp = self._client.messages.create(
+        resp = self._get_client().messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
             temperature=0.0,

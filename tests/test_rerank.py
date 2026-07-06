@@ -7,6 +7,8 @@ indices back to the correct source chunks, sorting, and metadata preservation.
 
 from __future__ import annotations
 
+import sys
+import types
 from dataclasses import dataclass
 
 import pytest
@@ -22,12 +24,15 @@ class _Chunk:
 
 def _make_reranker(rerank_response):
     """Build a CohereReranker whose client returns a canned rerank response."""
+    from types import SimpleNamespace
+
     from rag_revops.config import RerankConfig
     from rag_revops.rerank import CohereReranker
 
     cfg = RerankConfig(max_retries=1, backoff_base_s=0.0, backoff_cap_s=0.0)
     r = CohereReranker(cfg)
-    r._client.rerank = lambda **kwargs: rerank_response  # type: ignore[attr-defined]
+    # Inject a stub client so no key / network is needed (client is lazy).
+    r._client = SimpleNamespace(rerank=lambda **kwargs: rerank_response)
     return r
 
 

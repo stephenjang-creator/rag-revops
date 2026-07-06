@@ -32,10 +32,17 @@ class RewrittenQuery:
 class QueryRewriter:
     def __init__(self, settings: Settings):
         self.settings = settings
-        secrets = load_secrets()
-        if not secrets.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
-        self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        # Client created lazily on first use so construction needs no key (tests
+        # can build the object and stub the call); real calls require the key.
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            secrets = load_secrets()
+            if not secrets.anthropic_api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
+            self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        return self._client
 
     def rewrite(self, question: str) -> RewrittenQuery:
         q = question.strip()
@@ -57,7 +64,7 @@ class QueryRewriter:
             "- Keep the user's intent; do not invent new criteria they didn't ask about.\n"
             "- Return ONLY the rewritten question, one line, no preamble or quotes."
         )
-        resp = self._client.messages.create(
+        resp = self._get_client().messages.create(
             model=cfg.model,
             max_tokens=200,
             temperature=0.0,

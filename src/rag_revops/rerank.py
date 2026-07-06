@@ -53,16 +53,25 @@ def _is_rate_limit(exc: Exception) -> bool:
 class CohereReranker:
     def __init__(self, cfg: RerankConfig):
         self.cfg = cfg
-        secrets = load_secrets()
-        if not secrets.cohere_api_key:
-            raise RuntimeError("COHERE_API_KEY is not set (see .env.example).")
-        self._client = cohere.Client(api_key=secrets.cohere_api_key)
+        # Client is created lazily on first use, not here — so tests can construct
+        # the reranker and inject a stub client without a key, and only real API
+        # calls require COHERE_API_KEY.
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            secrets = load_secrets()
+            if not secrets.cohere_api_key:
+                raise RuntimeError("COHERE_API_KEY is not set (see .env.example).")
+            self._client = cohere.Client(api_key=secrets.cohere_api_key)
+        return self._client
 
     def _rerank_with_retry(self, query: str, documents: list[str], top_n: int):
+        client = self._get_client()
         attempt = 0
         while True:
             try:
-                return self._client.rerank(
+                return client.rerank(
                     query=query,
                     documents=documents,
                     model=self.cfg.model,

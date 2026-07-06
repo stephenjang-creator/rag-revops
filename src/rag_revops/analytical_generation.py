@@ -54,10 +54,17 @@ def _format_batch(batch: list[ContractMatch]) -> str:
 class AnalyticalGenerator:
     def __init__(self, settings: Settings):
         self.settings = settings
-        secrets = load_secrets()
-        if not secrets.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
-        self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        # Client created lazily on first use so construction needs no key (tests
+        # can build the object and stub the call); real calls require the key.
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            secrets = load_secrets()
+            if not secrets.anthropic_api_key:
+                raise RuntimeError("ANTHROPIC_API_KEY is not set (see .env.example).")
+            self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
+        return self._client
 
     def generate(self, question: str, matches: list[ContractMatch]) -> AnalyticalResult:
         cfg = self.settings.generation
@@ -97,7 +104,8 @@ class AnalyticalGenerator:
         """Ask the model to enumerate the equivalent ways a contract might express
         the criterion, so the judge recognizes paraphrases for ANY query — not just
         the one clause type we happened to hardcode."""
-        resp = self._client.messages.create(
+        cfg = self.settings.generation
+        resp = self._get_client().messages.create(
             model=model,
             max_tokens=400,
             temperature=0.0,
@@ -140,7 +148,7 @@ class AnalyticalGenerator:
             "Include only candidates that genuinely satisfy the criterion by meaning. "
             'If none do, return {"matches": []}.'
         )
-        resp = self._client.messages.create(
+        resp = self._get_client().messages.create(
             model=model,
             max_tokens=cfg.max_tokens,
             temperature=cfg.temperature,
