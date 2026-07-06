@@ -94,9 +94,9 @@ class HybridRetriever:
         doc_id: str | None = None,
     ) -> list[FusedChunk]:
         r = self.settings.retrieval
-        top_k = top_k or r.top_k
-        fetch_k = fetch_k or getattr(r, "fetch_k", max(top_k * 4, 20))
-        rrf_k = getattr(r, "rrf_k", 60)
+        top_k = int(top_k if top_k is not None else r.top_k)
+        fetch_k = int(fetch_k if fetch_k is not None else getattr(r, "fetch_k", max(top_k * 4, 20)))
+        rrf_k = int(getattr(r, "rrf_k", 60))
 
         query_vec = self.embedder.embed_query(query)
         # Dense side filters via Chroma's metadata where-clause.

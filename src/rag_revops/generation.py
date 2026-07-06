@@ -8,13 +8,14 @@ the caller can render verifiable citations.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import anthropic
 
 from .config import Settings, load_secrets
 from .observability import count_llm_call, observe, record, record_usage
-from .vectorstore import RetrievedChunk
+from .vectorstore import ChunkLike
 
 
 @dataclass
@@ -36,7 +37,7 @@ class AnswerResult:
     model: str
 
 
-def _format_context(chunks: list[RetrievedChunk]) -> tuple[str, list[Citation]]:
+def _format_context(chunks: Sequence[ChunkLike]) -> tuple[str, list[Citation]]:
     lines: list[str] = []
     citations: list[Citation] = []
     for i, ch in enumerate(chunks, start=1):
@@ -71,7 +72,7 @@ class Generator:
         return self._client
 
     @observe("generation", as_type="generation")
-    def generate(self, question: str, chunks: list[RetrievedChunk]) -> AnswerResult:
+    def generate(self, question: str, chunks: Sequence[ChunkLike]) -> AnswerResult:
         cfg = self.settings.generation
         prompts = self.settings.prompts
         decline_message = prompts.decline_message

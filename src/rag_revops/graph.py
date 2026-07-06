@@ -11,6 +11,7 @@ human-in-the-loop / decline behavior legible and easy to extend in Phase 2
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -22,7 +23,7 @@ from .hybrid import HybridRetriever
 from .observability import RequestTimer, flush, observe, record, trace_context
 from .rerank import CohereReranker
 from .retrieval import Retriever
-from .vectorstore import ChromaStore, RetrievedChunk
+from .vectorstore import ChromaStore, ChunkLike
 
 # For pure DENSE retrieval with NO reranker, chunk scores are cosine similarity
 # (~0..1), so we decline on a low best-match score. When the reranker is enabled,
@@ -35,7 +36,7 @@ _MIN_DENSE_TOP_SCORE = 0.25
 class PipelineState(TypedDict, total=False):
     question: str
     doc_id: str | None
-    chunks: list[RetrievedChunk]
+    chunks: Sequence[ChunkLike]
     result: AnswerResult
 
 
@@ -46,6 +47,7 @@ class RagPipeline:
         self.embedder = CohereEmbedder(self.settings.embeddings)
         self.use_hybrid = getattr(self.settings.retrieval, "use_hybrid", False)
         self.use_rerank = getattr(self.settings.rerank, "enabled", False)
+        self.retriever: HybridRetriever | Retriever
         if self.use_hybrid:
             self.retriever = HybridRetriever(self.settings, self.store, self.embedder)
         else:
@@ -59,9 +61,12 @@ class RagPipeline:
     def _retrieve(self, state: PipelineState) -> PipelineState:
         doc_id = state.get("doc_id")
         # HybridRetriever accepts a doc_id filter; the pure-dense fallback doesn't,
-        # so only pass it when hybrid is active.
-        if self.use_hybrid:
-            chunks = self.retriever.retrieve(state["question"], doc_id=doc_id)
+        # so only pass it when hybrid is active. isinstance narrows the union type
+        # for the checker (self.use_hybrid alone doesn't narrow self.retriever).
+        if isinstance(self.retriever, HybridRetriever):
+            chunks: Sequence[ChunkLike] = self.retriever.retrieve(
+                state["question"], doc_id=doc_id
+            )
         else:
             chunks = self.retriever.retrieve(state["question"])
         # Trace which chunks were retrieved, in order, with scores — the raw
@@ -79,6 +84,9 @@ class RagPipeline:
         return {"chunks": chunks}
 
     def _rerank(self, state: PipelineState) -> PipelineState:
+        # This node is only wired into the graph when rerank is enabled, so the
+        # reranker is present here; assert for the type checker.
+        assert self.reranker is not None
         reranked = self.reranker.rerank(state["question"], state["chunks"])
         return {"chunks": reranked}
 

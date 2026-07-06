@@ -21,6 +21,7 @@ relevance score.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -91,7 +92,7 @@ class CohereReranker:
 
     @observe("rerank")
     def rerank(
-        self, query: str, chunks: list[_HasText], top_n: int | None = None
+        self, query: str, chunks: Sequence[_HasText], top_n: int | None = None
     ) -> list[RerankedChunk]:
         if not chunks:
             record(candidates_in=0, candidates_out=0, dropped=0)

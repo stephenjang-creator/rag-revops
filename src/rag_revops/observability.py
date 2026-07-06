@@ -35,7 +35,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 logger = logging.getLogger("rag_revops.observability")
 
@@ -59,8 +59,8 @@ _observe_impl: Callable | None = None
 
 if _tracing_requested():
     try:
-        from langfuse import Langfuse  # type: ignore
-        from langfuse import observe as _lf_observe  # type: ignore
+        from langfuse import Langfuse
+        from langfuse import observe as _lf_observe
 
         _langfuse = Langfuse(
             public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
@@ -286,7 +286,7 @@ class RequestTimer:
         self.n_citations = n_citations
         self.n_context_chunks = n_context_chunks
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         self.latency_ms = (time.perf_counter() - self._t0) * 1000.0
         if exc is not None:
             self.error = f"{exc_type.__name__}: {exc}"[:200]

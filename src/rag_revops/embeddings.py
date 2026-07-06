@@ -24,6 +24,7 @@ from .config import EmbeddingsConfig, load_secrets
 
 # Cohere raises typed errors; we treat rate-limit and generic API errors as
 # retryable. Import defensively in case the SDK's error surface shifts.
+_RateLimitError: type[Exception] | None
 try:  # pragma: no cover - import shape varies by cohere version
     from cohere.errors import TooManyRequestsError as _RateLimitError
 except Exception:  # pragma: no cover

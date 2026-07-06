@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 
 from .config import Settings
 from .embeddings import CohereEmbedder
-from .rerank import CohereReranker, RerankedChunk
+from .rerank import CohereReranker
 from .vectorstore import ChromaStore, RetrievedChunk
 
 
@@ -38,7 +38,9 @@ class ContractMatch:
     doc_id: str
     source_path: str
     best_score: float                 # rerank score of this contract's representative
-    chunks: list[RerankedChunk] = field(default_factory=list)  # representative(s), best first
+    # Representative dense-pool excerpts for this contract (best first). The LLM
+    # judge reads their .text; they come from the dense pool, so RetrievedChunk.
+    chunks: list[RetrievedChunk] = field(default_factory=list)
 
 
 class AnalyticalRetriever:
@@ -89,13 +91,15 @@ class AnalyticalRetriever:
         # 4. Return ALL candidates as matches (ordered by rerank). Membership is
         #    decided downstream by the LLM judge, not by a score threshold.
         matches: list[ContractMatch] = []
-        for ch in reranked:
+        for rc in reranked:
+            # rc.doc_id is always a key in by_contract (representatives derive
+            # from it), so the buckets are the RetrievedChunk excerpts we want.
             matches.append(
                 ContractMatch(
-                    doc_id=ch.doc_id,
-                    source_path=ch.metadata.get("source_path", ch.doc_id),
-                    best_score=ch.score,
-                    chunks=by_contract.get(ch.doc_id, [ch]),
+                    doc_id=rc.doc_id,
+                    source_path=str(rc.metadata.get("source_path", rc.doc_id)),
+                    best_score=rc.score,
+                    chunks=by_contract.get(rc.doc_id, []),
                 )
             )
 
