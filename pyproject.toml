@@ -44,7 +44,7 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
-    "ruff>=0.6.0",
+    "ruff>=0.6.0,<0.15.0",
     "mypy>=1.11.0",
 ]
 eval = [
@@ -53,10 +53,17 @@ eval = [
     # conflicts between Ragas' old-langchain expectations and LangGraph's 1.x core.
     # No extra dependencies beyond what the pipeline already installs.
 ]
+observability = [
+    # Optional: LLM tracing. The pipeline imports rag_revops.observability
+    # unconditionally, but it degrades to a no-op if langfuse isn't installed or
+    # LANGFUSE_* env vars are absent. Install this extra to enable tracing.
+    "langfuse>=2.0,<4.0",
+]
 
 [project.scripts]
 rag-ingest = "rag_revops.ingest:app"
 rag-query = "rag_revops.query:app"
+rag-metrics = "rag_revops.metrics_report:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -68,20 +75,21 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# app.py inserts src/ onto sys.path before importing the package, so the
+# streamlit import necessarily follows executable code. This is intentional.
+"app.py" = ["E402"]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer.Option/Argument in argument defaults is the intended Typer idiom
+# (dependency injection), not a mutable-default bug. Whitelist the calls so
+# B008 still catches real mutable defaults elsewhere.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 warn_unused_ignores = true
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = [
-  "rag_revops.embeddings",
-  "rag_revops.vectorstore",
-  "rag_revops.analytical",
-  "rag_revops.hybrid",
-  "rag_revops.graph",
-]
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import anthropic
 
 from .config import Settings, load_secrets
+from .observability import count_llm_call, observe, record, record_usage
 from .vectorstore import RetrievedChunk
 
 
@@ -69,12 +70,15 @@ class Generator:
             self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
         return self._client
 
+    @observe("generation", as_type="generation")
     def generate(self, question: str, chunks: list[RetrievedChunk]) -> AnswerResult:
         cfg = self.settings.generation
         prompts = self.settings.prompts
         decline_message = prompts.decline_message
 
         if not chunks:
+            # No context to generate from: this is a decline, not a model call.
+            record(no_context=True, declined=True)
             return AnswerResult(
                 question=question,
                 answer=decline_message,
@@ -86,6 +90,7 @@ class Generator:
         context, citations = _format_context(chunks)
         user_msg = prompts.user_template.format(question=question, context=context)
 
+        count_llm_call()
         resp = self._get_client().messages.create(
             model=cfg.model,
             max_tokens=cfg.max_tokens,
@@ -99,6 +104,23 @@ class Generator:
 
         declined = answer.strip() == decline_message
         used = [] if declined else _cited_only(answer, citations)
+
+        # Trace the exact prompt sent, the response, tokens, and grounding.
+        usage = getattr(resp, "usage", None)
+        record_usage(
+            model=cfg.model,
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+        )
+        record(
+            system_prompt=prompts.system,
+            user_prompt=user_msg,
+            answer=answer,
+            n_context_chunks=len(chunks),
+            n_citations=len(used),
+            declined=declined,
+            uncited_answer=(not declined and not used),  # quality red flag
+        )
 
         return AnswerResult(
             question=question,

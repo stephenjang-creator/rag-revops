@@ -19,6 +19,7 @@ from .config import Settings, load_settings
 from .embeddings import CohereEmbedder
 from .generation import AnswerResult, Generator
 from .hybrid import HybridRetriever
+from .observability import RequestTimer, flush, observe, record, trace_context
 from .rerank import CohereReranker
 from .retrieval import Retriever
 from .vectorstore import ChromaStore, RetrievedChunk
@@ -54,6 +55,7 @@ class RagPipeline:
         self._graph = self._build()
 
     # --- nodes -------------------------------------------------------------
+    @observe("retrieve")
     def _retrieve(self, state: PipelineState) -> PipelineState:
         doc_id = state.get("doc_id")
         # HybridRetriever accepts a doc_id filter; the pure-dense fallback doesn't,
@@ -62,6 +64,18 @@ class RagPipeline:
             chunks = self.retriever.retrieve(state["question"], doc_id=doc_id)
         else:
             chunks = self.retriever.retrieve(state["question"])
+        # Trace which chunks were retrieved, in order, with scores — the raw
+        # input to reranking and generation.
+        record(
+            mode="hybrid" if self.use_hybrid else "dense",
+            doc_id=doc_id,
+            n_retrieved=len(chunks),
+            retrieved=[
+                {"chunk_id": c.chunk_id, "doc_id": c.doc_id, "score": round(c.score, 4)}
+                for c in chunks
+            ],
+            top_score=(chunks[0].score if chunks else None),
+        )
         return {"chunks": chunks}
 
     def _rerank(self, state: PipelineState) -> PipelineState:
@@ -133,15 +147,41 @@ class RagPipeline:
         """Answer a question. If doc_id is given, retrieval is restricted to that
         single contract (used by the UI's 'ask about one contract' mode); otherwise
         it searches the whole corpus."""
-        final = self._graph.invoke({"question": question, "doc_id": doc_id})
-        return final["result"]
+        mode = "single_doc" if doc_id else "search_all"
+        with (
+            trace_context(mode + "_query", tags=[mode], question=question,
+                          config_version=self.settings.version),
+            RequestTimer(mode=mode, question=question) as timer,
+        ):
+            final = self._graph.invoke({"question": question, "doc_id": doc_id})
+            result = final["result"]
+            chunks = final.get("chunks") or []
+            timer.set_result(
+                declined=result.declined,
+                n_citations=len(result.citations),
+                n_context_chunks=len(chunks),
+            )
+        flush()
+        return result
 
     def ask_with_contexts(self, question: str) -> tuple[AnswerResult, list[str]]:
         """Like ask(), but also returns the full text of the chunks that were in
         context at generation time. The eval needs the complete chunk texts (not
         the truncated citation snippets) to score whether the answer's claims are
         grounded. On a declined answer the contexts are whatever was retrieved."""
-        final = self._graph.invoke({"question": question})
-        chunks = final.get("chunks") or []
-        contexts = [c.text for c in chunks]
-        return final["result"], contexts
+        with (
+            trace_context("eval_query", tags=["eval"], question=question,
+                          config_version=self.settings.version),
+            RequestTimer(mode="eval", question=question) as timer,
+        ):
+            final = self._graph.invoke({"question": question})
+            result = final["result"]
+            chunks = final.get("chunks") or []
+            contexts = [c.text for c in chunks]
+            timer.set_result(
+                declined=result.declined,
+                n_citations=len(result.citations),
+                n_context_chunks=len(chunks),
+            )
+        flush()
+        return result, contexts

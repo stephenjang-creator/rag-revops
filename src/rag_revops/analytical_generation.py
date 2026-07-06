@@ -22,6 +22,15 @@ import anthropic
 
 from .analytical import ContractMatch
 from .config import Settings, load_secrets
+from .observability import (
+    RequestTimer,
+    count_llm_call,
+    flush,
+    observe,
+    record,
+    record_usage,
+    trace_context,
+)
 
 _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -66,7 +75,29 @@ class AnalyticalGenerator:
             self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
         return self._client
 
+    @observe("analytical_generate")
     def generate(self, question: str, matches: list[ContractMatch]) -> AnalyticalResult:
+        with (
+            trace_context("analytical_query", tags=["cross-corpus"], question=question,
+                          config_version=self.settings.version),
+            RequestTimer(mode="analytical", question=question) as timer,
+        ):
+            result = self._generate_inner(question, matches)
+            # Analytical answers are set-membership results; "grounded" here
+            # means the query produced >=1 confirmed finding (with a cited
+            # reason). No findings on a real query is a decline-like outcome.
+            declined = not result.findings
+            timer.set_result(
+                declined=declined,
+                n_citations=len(result.findings),
+                n_context_chunks=result.n_candidates,
+            )
+        flush()
+        return result
+
+    def _generate_inner(
+        self, question: str, matches: list[ContractMatch]
+    ) -> AnalyticalResult:
         cfg = self.settings.generation
         model = cfg.model
 
@@ -92,6 +123,11 @@ class AnalyticalGenerator:
             findings.extend(self._judge_batch(question, batch, model, guidance))
 
         answer = self._render_answer(findings)
+        record(
+            n_candidates=len(matches),
+            n_confirmed=len(findings),
+            judge_batches=(len(matches) + batch_size - 1) // batch_size,
+        )
         return AnalyticalResult(
             question=question,
             findings=findings,
@@ -104,6 +140,7 @@ class AnalyticalGenerator:
         """Ask the model to enumerate the equivalent ways a contract might express
         the criterion, so the judge recognizes paraphrases for ANY query — not just
         the one clause type we happened to hardcode."""
+        count_llm_call()
         resp = self._get_client().messages.create(
             model=model,
             max_tokens=400,
@@ -120,6 +157,7 @@ class AnalyticalGenerator:
         )
         return "".join(b.text for b in resp.content if b.type == "text").strip()
 
+    @observe("membership_judge", as_type="generation")
     def _judge_batch(
         self, question: str, batch: list[ContractMatch], model: str, guidance: str
     ) -> list[ContractFinding]:
@@ -147,6 +185,7 @@ class AnalyticalGenerator:
             "Include only candidates that genuinely satisfy the criterion by meaning. "
             'If none do, return {"matches": []}.'
         )
+        count_llm_call()
         resp = self._get_client().messages.create(
             model=model,
             max_tokens=cfg.max_tokens,
@@ -155,7 +194,20 @@ class AnalyticalGenerator:
             messages=[{"role": "user", "content": user}],
         )
         text = "".join(b.text for b in resp.content if b.type == "text")
-        return self._parse_findings(text, batch)
+        findings = self._parse_findings(text, batch)
+
+        usage = getattr(resp, "usage", None)
+        record_usage(
+            model=model,
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+        )
+        record(
+            batch_size=len(batch),
+            members=len(findings),
+            rejected=len(batch) - len(findings),
+        )
+        return findings
 
     @staticmethod
     def _parse_findings(text: str, batch: list[ContractMatch]) -> list[ContractFinding]:

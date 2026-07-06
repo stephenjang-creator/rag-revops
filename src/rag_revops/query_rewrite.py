@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import anthropic
 
 from .config import Settings, load_secrets
+from .observability import count_llm_call, observe, record, record_usage
 
 
 @dataclass
@@ -44,6 +45,7 @@ class QueryRewriter:
             self._client = anthropic.Anthropic(api_key=secrets.anthropic_api_key)
         return self._client
 
+    @observe("query_rewrite", as_type="generation")
     def rewrite(self, question: str) -> RewrittenQuery:
         q = question.strip()
         if not q:
@@ -64,6 +66,7 @@ class QueryRewriter:
             "- Keep the user's intent; do not invent new criteria they didn't ask about.\n"
             "- Return ONLY the rewritten question, one line, no preamble or quotes."
         )
+        count_llm_call()
         resp = self._get_client().messages.create(
             model=cfg.model,
             max_tokens=200,
@@ -72,11 +75,21 @@ class QueryRewriter:
             messages=[{"role": "user", "content": q}],
         )
         rewritten = "".join(b.text for b in resp.content if b.type == "text").strip()
+
+        usage = getattr(resp, "usage", None)
+        record_usage(
+            model=cfg.model,
+            input_tokens=getattr(usage, "input_tokens", None),
+            output_tokens=getattr(usage, "output_tokens", None),
+        )
+
         # Guard against an empty or degenerate rewrite — fall back to the original.
         if not rewritten:
+            record(original=q, rewritten=q, changed=False)
             return RewrittenQuery(original=q, rewritten=q, changed=False)
 
         changed = _normalize(rewritten) != _normalize(q)
+        record(original=q, rewritten=rewritten, changed=changed)
         return RewrittenQuery(original=q, rewritten=rewritten, changed=changed)
 
 

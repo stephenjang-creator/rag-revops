@@ -27,6 +27,7 @@ from typing import Protocol
 import cohere
 
 from .config import RerankConfig, load_secrets
+from .observability import observe, record
 
 
 class _HasText(Protocol):
@@ -88,10 +89,12 @@ class CohereReranker:
                 )
                 time.sleep(wait)
 
+    @observe("rerank")
     def rerank(
         self, query: str, chunks: list[_HasText], top_n: int | None = None
     ) -> list[RerankedChunk]:
         if not chunks:
+            record(candidates_in=0, candidates_out=0, dropped=0)
             return []
         # Default to the single-doc top_n cap; callers (e.g. analytical mode) can
         # override to get scores for ALL chunks by passing top_n=len(chunks).
@@ -113,4 +116,17 @@ class CohereReranker:
             )
         # Cohere returns results sorted by relevance, but sort defensively.
         out.sort(key=lambda c: c.score, reverse=True)
+
+        # Trace how the reranker reordered the pool. `dropped` surfaces the
+        # top_n result-cap that once silently discarded 95/100 contracts — now
+        # a standing metric that would catch its own regression.
+        record(
+            candidates_in=len(chunks),
+            top_n_requested=effective_top_n,
+            candidates_out=len(out),
+            dropped=len(chunks) - len(out),
+            top_score=(out[0].score if out else None),
+            min_kept_score=(out[-1].score if out else None),
+            reordered_ids=[c.chunk_id for c in out],
+        )
         return out

@@ -21,15 +21,29 @@ import os
 import sys
 from pathlib import Path
 
-import streamlit as st
-
 # Streamlit Cloud installs runtime deps from requirements.txt but does not run an
 # editable install of this package, so make the src/ layout importable directly.
 _SRC = Path(__file__).resolve().parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+import streamlit as st
 
+# Bridge observability config from Streamlit secrets → environment BEFORE importing
+# anything that reads it. observability.py decides whether Langfuse is on at import
+# time from os.environ, so these must be set first. All are optional: absent secrets
+# leave the defaults (tracing off, metrics sink on). This is the seam that lets you
+# turn tracing on for a deployment via Streamlit's Secrets UI without code changes.
+for _key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST",
+             "RAG_METRICS_PATH", "RAG_CONFIG_VERSION"):
+    try:
+        _val = st.secrets.get(_key)
+    except Exception:
+        _val = None
+    if _val:
+        os.environ[_key] = str(_val)
+
+from rag_revops.admin_panel import render_admin_panel
 
 st.set_page_config(
     page_title="Deal Desk Helper — contract analysis", page_icon="📄", layout="wide"
@@ -64,7 +78,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="dd-eyebrow">Operator tool · Built in Python</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="dd-eyebrow">Operator tool · Built in Python</div>',
+    unsafe_allow_html=True,
+)
 st.title("📄 Deal Desk Helper")
 st.caption(
     "Citation-grounded analysis over **public** contract data (CUAD, CC BY 4.0). "
@@ -88,6 +105,11 @@ with st.sidebar:
         "**Data:** public only (CUAD, CC BY 4.0). No proprietary data. "
         "See the repo's `DATA_PROVENANCE.md`."
     )
+
+# Admin-only operational metrics (password-gated via st.secrets["admin_password"]).
+# Invisible to reviewers who don't have the password; renders nothing if no
+# password is configured. Metrics still collect silently either way.
+render_admin_panel()
 
 keys_ready = bool(anthropic_key and cohere_key)
 if anthropic_key:

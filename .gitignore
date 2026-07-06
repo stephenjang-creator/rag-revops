@@ -24,3 +24,9 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Observability metrics sink (local; regenerated from traffic)
+metrics/
+
+# Streamlit local secrets (admin_password, etc.) — never commit
+.streamlit/secrets.toml
