@@ -10,11 +10,9 @@ Built to cut the escalation tax — the constant back-and-forth where a rep ping
 
 ## 🔗 Live demo
 
-**[Try it → `https://<your-app>.streamlit.app`](https://share.streamlit.io)** *(update after deploying)*
+**[Try it → `https://rag-revops.streamlit.app`](https://rag-revops.streamlit.app)
 
 Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthropic + Cohere keys into the sidebar — they live only in your browser session, never logged, never committed. Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.
-
-*(Walkthrough GIF here.)*
 
 ---
 
