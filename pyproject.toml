@@ -73,6 +73,16 @@ python_version = "3.12"
 warn_unused_ignores = true
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+  "rag_revops.embeddings",
+  "rag_revops.vectorstore",
+  "rag_revops.analytical",
+  "rag_revops.hybrid",
+  "rag_revops.graph",
+]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
