@@ -57,7 +57,10 @@ observability = [
     # Optional: LLM tracing. The pipeline imports rag_revops.observability
     # unconditionally, but it degrades to a no-op if langfuse isn't installed or
     # LANGFUSE_* env vars are absent. Install this extra to enable tracing.
-    "langfuse>=2.0,<4.0",
+    # Pinned to v3: this code uses the v3 OTel-native SDK surface
+    # (start_as_current_observation, update_current_span/generation). v2's API
+    # is incompatible and would break the tracing layer.
+    "langfuse>=3.0,<4.0",
 ]
 
 [project.scripts]

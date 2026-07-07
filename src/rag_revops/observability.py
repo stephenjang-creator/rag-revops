@@ -31,7 +31,7 @@ import logging
 import os
 import time
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from pathlib import Path
@@ -170,18 +170,41 @@ def trace_context(
     tags: list[str] | None = None,
     **metadata: Any,
 ) -> Iterator[None]:
-    """Name the current root trace and tag it. No-op when disabled."""
+    """Open a timed root span for the whole request and name/tag the trace.
+
+    Using ``start_as_current_observation(as_type="span")`` (v3 SDK) matters:
+    it creates a real observation with start/end timestamps, so Langfuse can
+    compute *trace-level* latency — not just per-generation latency. All the
+    @observe-decorated stages nest under this root automatically via OTel
+    context propagation. Without a root span the trace envelope has no duration
+    and the trace latency dashboard stays empty even though generations are
+    timed. No-op when disabled; never raises into the pipeline.
+    """
     if not _ENABLED or _langfuse is None:
         yield
         return
+
+    # Try to open a real timed root span. If the SDK surface differs, fall back
+    # to a null context so we still annotate the trace without losing tracing.
+    # Deciding the context manager up front (rather than wrapping the yield in a
+    # try/except) avoids any double-yield on body exceptions.
     try:
-        _langfuse.update_current_trace(
-            name=name, session_id=session_id, tags=tags,
-            metadata=dict(metadata) or None,
-        )
+        root_cm: Any = _langfuse.start_as_current_observation(as_type="span", name=name)
     except Exception as exc:  # pragma: no cover
-        logger.debug("trace_context setup failed: %s", exc)
-    yield
+        logger.debug("start_as_current_observation unavailable (%s); annotating only.", exc)
+        root_cm = nullcontext()
+
+    with root_cm:
+        try:
+            _langfuse.update_current_trace(
+                name=name,
+                session_id=session_id,
+                tags=tags,
+                metadata=dict(metadata) or None,
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.debug("update_current_trace failed: %s", exc)
+        yield
 
 
 def flush() -> None:

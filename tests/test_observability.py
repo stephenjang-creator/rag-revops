@@ -21,15 +21,27 @@ from rag_revops import observability as obs
 
 @pytest.fixture(autouse=True)
 def _isolate_sink(tmp_path, monkeypatch):
-    """Point the metrics sink at a tmp file and ensure tracing is disabled."""
+    """Point the metrics sink at a tmp file and force tracing OFF for tests.
+
+    tracing_enabled() reflects a module-level flag computed once at import time
+    from the environment. A developer running the suite locally may have real
+    LANGFUSE_* keys set (so the module imported with tracing ON), and deleting
+    the env vars here can't retroactively flip an already-imported flag. So we
+    patch the flag directly — this guarantees the no-op path is what's under
+    test, whether or not the developer has keys configured.
+    """
     monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
     monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+    monkeypatch.setattr(obs, "_ENABLED", False)
+    monkeypatch.setattr(obs, "_langfuse", None)
     sink = tmp_path / "requests.jsonl"
     monkeypatch.setenv("RAG_METRICS_PATH", str(sink))
     return sink
 
 
 def test_tracing_disabled_without_keys():
+    # With the flag patched off (see fixture), tracing must report disabled and
+    # the helpers must all be inert — that's the contract this suite verifies.
     assert obs.tracing_enabled() is False
 
 
