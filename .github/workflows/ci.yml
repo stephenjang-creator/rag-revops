@@ -107,12 +107,24 @@ jobs:
       # pipeline, so metrics/requests.jsonl now holds real per-request latency,
       # LLM-call counts, citation coverage, and errors. Gate on the operational
       # signals — no extra API spend, since the traffic already happened.
+      #
+      # Thresholds are set just outside observed values (p50 ~21s, p95 ~60s,
+      # coverage 100%, failure 0% on a representative batch) so normal variance
+      # passes but a real regression trips:
+      #   - max-p95-ms 90000  : ~50% headroom over ~60s p95. Trial-tier API
+      #                         rate-limit backoff makes latency spiky, and the
+      #                         CI eval's 15-item p95 is a noisier small sample,
+      #                         so the ceiling is deliberately generous.
+      #   - min-coverage 0.80 : catches answers losing citations without failing
+      #                         on one unlucky decline as harder questions are added.
+      #   - max-failure-rate 0.05 : tolerates a transient API error, not a real
+      #                         reliability regression.
       - name: Run operational-metrics gate
         if: steps.secretcheck.outputs.present == 'true'
         run: |
           python -m rag_revops.metrics_report \
             --gate \
-            --min-coverage 0.90 \
+            --min-coverage 0.80 \
             --max-failure-rate 0.05 \
             --max-p95-ms 90000
 
