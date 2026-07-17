@@ -117,10 +117,24 @@ class AnalyticalGenerator:
         guidance = self._criterion_guidance(question, model)
 
         batch_size = self.settings.analytical.judge_batch_size
+
+        # Judge in a stable, query-independent order (by doc_id) so batch
+        # composition doesn't depend on the rerank ordering. Two equivalent
+        # phrasings ("do either parties have a TFC" vs "termination for
+        # convenience") rerank the contracts in slightly different orders;
+        # batching in that order placed borderline contracts next to different
+        # neighbors and yielded different confirm/reject counts (e.g. 7 vs 9).
+        # Sorting by doc_id makes the batches identical across phrasings, so the
+        # judge sees the same contracts grouped together every time.
+        ordered = sorted(matches, key=lambda m: m.doc_id)
         findings: list[ContractFinding] = []
-        for start in range(0, len(matches), batch_size):
-            batch = matches[start : start + batch_size]
+        for start in range(0, len(ordered), batch_size):
+            batch = ordered[start : start + batch_size]
             findings.extend(self._judge_batch(question, batch, model, guidance))
+
+        # Present the confirmed contracts best-ranked first (rerank score),
+        # independent of the doc_id ordering used for judging above.
+        findings.sort(key=lambda f: f.score, reverse=True)
 
         answer = self._render_answer(findings)
         record(

@@ -1,16 +1,19 @@
-"""Deal Desk Helper — Streamlit demo (bring-your-own-key), two modes.
+"""Deal Desk Helper — Streamlit demo (bring-your-own-key), three modes.
 
 A public, live demo of the contract-analysis pipeline. It bakes in NO API keys:
 the visitor pastes their own Anthropic + Cohere keys into the sidebar. Keys live
 only in Streamlit session state for the browser session — never written to disk,
 never logged, never committed.
 
-Two modes:
+Three modes:
   • Ask about a contract   — pick one contract, then get a grounded answer with
                              inline citations, or an explicit decline.
   • Find contracts         — cross-corpus analytical retrieval: "which contracts
                              have X", using an LLM judge that recognizes clauses
                              phrased differently from the query.
+  • Find clause language   — precision retrieval for drafting: "example language
+                             for a termination-for-convenience clause", ranked by
+                             the cross-encoder reranker (its score IS the signal).
 
 Deployed on Streamlit Community Cloud from this repo; it reruns on every push.
 """
@@ -85,8 +88,9 @@ st.markdown(
 st.title("📄 Deal Desk Helper")
 st.caption(
     "Citation-grounded analysis over **public** contract data (CUAD, CC BY 4.0). "
-    "Ask about a single contract, or find which contracts across the corpus contain "
-    "a given clause — even when they phrase it differently from your query. "
+    "Ask about a single contract, find which contracts across the corpus contain "
+    "a given clause — even when they phrase it differently — or pull example clause "
+    "language to reuse. "
     "**Human-in-the-loop by design: it cites its sources, or declines rather than guessing.**"
 )
 st.markdown('<div class="dd-rule"></div>', unsafe_allow_html=True)
@@ -154,6 +158,21 @@ def _build_analytical(fingerprint: str):
 
 
 @st.cache_resource(show_spinner=False)
+def _build_clause(fingerprint: str):
+    from rag_revops.config import load_secrets, load_settings
+
+    load_secrets.cache_clear()
+    from rag_revops.clause_finder import ClauseFinder
+    from rag_revops.embeddings import CohereEmbedder
+    from rag_revops.vectorstore import ChromaStore
+
+    settings = load_settings()
+    store = ChromaStore(settings.vectorstore)
+    embedder = CohereEmbedder(settings.embeddings)
+    return ClauseFinder(settings, store, embedder)
+
+
+@st.cache_resource(show_spinner=False)
 def _build_rewriter(fingerprint: str):
     from rag_revops.config import load_secrets, load_settings
 
@@ -169,6 +188,7 @@ def _build_rewriter(fingerprint: str):
 
 MODE_SINGLE = "Ask about a contract"
 MODE_ANALYTICAL = "Find contracts across the corpus"
+MODE_CLAUSE = "Find clause language"
 
 
 def _set_example(input_key: str, text: str) -> None:
@@ -195,7 +215,7 @@ if not keys_ready:
 # From here down, keys are present — show the full query interface.
 mode = st.radio(
     "Mode",
-    [MODE_SINGLE, MODE_ANALYTICAL],
+    [MODE_SINGLE, MODE_ANALYTICAL, MODE_CLAUSE],
     horizontal=True,
     label_visibility="collapsed",
 )
@@ -378,7 +398,81 @@ def render_analytical() -> None:
             st.caption("Check that both API keys are valid and have available credit.")
 
 
+# ===========================================================================
+# MODE 3 — clause language finder (reranker-driven precision retrieval)
+# ===========================================================================
+
+def render_clause() -> None:
+    st.caption(
+        "Ask for **example language** for a clause — the tool pulls real passages "
+        "from the corpus that you can reuse as drafting references, ranked by a "
+        "cross-encoder reranker, each citing the contract it came from. This is the "
+        "reranker's strong suit: it surfaces the passages that most literally "
+        "express the clause you asked for."
+    )
+
+    examples = [
+        "termination for convenience",
+        "mutual confidentiality / NDA",
+        "limitation of liability",
+        "indemnification",
+    ]
+
+    cols = st.columns([4, 1])
+    with cols[0]:
+        question = st.text_input(
+            "Clause",
+            label_visibility="collapsed",
+            placeholder="e.g. termination for convenience",
+            key="cl_input",
+        )
+    with cols[1]:
+        find = st.button("Find language", type="primary", use_container_width=True)
+
+    ex_cols = st.columns(len(examples))
+    for i, ex in enumerate(examples):
+        ex_cols[i].button(
+            f"Example {i + 1}",
+            help=ex,
+            use_container_width=True,
+            key=f"cl_ex{i}",
+            on_click=_set_example,
+            args=("cl_input", ex),
+        )
+
+    if find and question.strip():
+        try:
+            finder = _build_clause(anthropic_key[-4:] + cohere_key[-4:])
+            run_query = _rewrite_and_show(question.strip())
+            with st.spinner("Retrieving and reranking candidate clauses…"):
+                result = finder.find(run_query)
+
+            if not result.options:
+                st.warning("No passages in the corpus clearly match that clause.")
+                st.caption(
+                    f"Reranked {result.n_considered} candidate passages; none scored "
+                    "above the relevance floor, so nothing is shown rather than "
+                    "offering weak language."
+                )
+            else:
+                st.success(
+                    f"{len(result.options)} example clause(s), ranked by the reranker"
+                )
+                for i, o in enumerate(result.options, start=1):
+                    with st.expander(
+                        f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}",
+                        expanded=(i == 1),
+                    ):
+                        st.markdown(f"> {o.text}")
+                        st.caption(f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`")
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Something went wrong: {exc}")
+            st.caption("Check that both API keys are valid and have available credit.")
+
+
 if mode == MODE_SINGLE:
     render_single_doc()
-else:
+elif mode == MODE_ANALYTICAL:
     render_analytical()
+else:
+    render_clause()

@@ -28,6 +28,14 @@ retrieval:
   top_k: 5                  # chunks pulled for generation in Phase 1
   # Phase 2 adds: hybrid (bm25 + vector), fetch_k, rerank_top_n
 
+# "Give me example language for clause X" — precision retrieval that leans on the
+# cross-encoder reranker (the opposite of analytical mode, where rerank is demoted
+# to ordering-only). Here the rerank score IS the signal, so we threshold on it.
+clause:
+  pool_size: 60             # dense candidates handed to the reranker
+  max_options: 6            # distinct example clauses returned (best per contract)
+  min_relevance: 0.30       # cross-encoder floor to count as usable language
+
 generation:
   provider: "anthropic"
   model: "claude-sonnet-4-6"

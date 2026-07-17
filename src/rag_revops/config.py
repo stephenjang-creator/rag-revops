@@ -82,6 +82,21 @@ class AnalyticalConfig(BaseModel):
     judge_batch_size: int = 10    # smaller batches = more careful per-candidate judging
 
 
+class ClauseConfig(BaseModel):
+    """'Show me example language for clause X' — precision retrieval that leans on
+    the cross-encoder reranker.
+
+    This is the reranker's home turf, the opposite of analytical mode: the user
+    wants passages that most LITERALLY express a clause (drafting references), so
+    the calibrated rerank score IS the membership signal here — a low score
+    genuinely means "not good example language for this clause". Retrieval + rerank
+    only; no LLM judge.
+    """
+    pool_size: int = 60          # dense candidates handed to the reranker
+    max_options: int = 6         # distinct example clauses returned (best per contract)
+    min_relevance: float = 0.30  # cross-encoder floor to count as usable language
+
+
 class GenerationConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-6"
@@ -124,6 +139,7 @@ class Settings(BaseModel):
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     rerank: RerankConfig = Field(default_factory=RerankConfig)
     analytical: AnalyticalConfig = Field(default_factory=AnalyticalConfig)
+    clause: ClauseConfig = Field(default_factory=ClauseConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
     analytical_eval: AnalyticalEvalConfig = Field(default_factory=AnalyticalEvalConfig)
