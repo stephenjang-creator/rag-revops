@@ -26,16 +26,31 @@ from .observability import count_llm_call, observe, record, record_usage
 # Inline citation markers like "[1]" or "[2, 3]", with any leading space/tab so we
 # don't leave a double space behind when we strip them for the clean copy.
 _CITATION_MARKER = re.compile(r"[ \t]*\[\d+(?:\s*,\s*\d+)*\]")
+# A parenthetical left holding only joiner words after the markers are removed,
+# e.g. "([1] and [2])" -> "( and)". Cleared so the copy reads naturally.
+_EMPTY_PARENS = re.compile(r"\(\s*(?:(?:and|or|&|/|,|;)\s*)*\)")
 
 
 def strip_citations(text: str) -> str:
     """Return the draft with inline [n] citation markers removed, so it can be
-    pasted straight into an order form. Collapses any double spaces left behind."""
+    pasted straight into an order form. Also clears parentheticals that held only
+    the markers (e.g. "([1] and [2])") and collapses the whitespace left behind."""
     out = _CITATION_MARKER.sub("", text)
+    out = _EMPTY_PARENS.sub("", out)
     out = re.sub(r"[ \t]{2,}", " ", out)
     # Tidy any now-orphaned space before sentence punctuation.
     out = re.sub(r"[ \t]+([,.;:)])", r"\1", out)
     return out.strip()
+
+
+def decline_reason(draft: str) -> str:
+    """For a declined draft, the model's explanation after the decline sentence
+    (empty if it gave none). Citations are left intact so any [n] resolves against
+    the passages shown alongside it."""
+    body = draft.lstrip()
+    if body.startswith(DECLINE_MESSAGE):
+        body = body[len(DECLINE_MESSAGE):]
+    return body.strip()
 
 # Emitted verbatim by the model when the retrieved examples don't support a draft,
 # and detected here to flag the decline — kept in one place so prompt and
@@ -100,9 +115,12 @@ class ClauseDrafter:
             "- Where the examples differ on a material term (e.g. a notice period), "
             "note the range or leave a clearly-marked [bracketed placeholder] rather "
             "than picking one arbitrarily.\n"
-            f'- If the examples do not actually cover the requested clause, respond '
-            f'exactly with: "{DECLINE_MESSAGE}"\n'
-            "Output the clause text only, with inline [n] citations — no preamble."
+            f"- If the examples do not actually cover the requested clause, do NOT "
+            f"draft one. Begin your reply with exactly this sentence: "
+            f'"{DECLINE_MESSAGE}" and then, on a new line, briefly explain why (you '
+            f"may cite [n]).\n"
+            "Otherwise, output the clause text only, with inline [n] citations — no "
+            "preamble."
         )
         user = (
             f"REQUESTED CLAUSE: {query}\n\n"
@@ -120,7 +138,10 @@ class ClauseDrafter:
         )
         draft = "".join(b.text for b in resp.content if b.type == "text").strip()
 
-        declined = draft == DECLINE_MESSAGE
+        # The model may emit the decline sentence followed by an explanation, so
+        # match on prefix, not exact equality — otherwise a decline gets rendered
+        # as if it were a clause (copy block and all).
+        declined = draft.lstrip().startswith(DECLINE_MESSAGE)
         # Keep only the examples the draft actually referenced inline as [n].
         cited = (
             []

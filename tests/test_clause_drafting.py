@@ -13,6 +13,7 @@ import pytest
 from rag_revops.clause_drafting import (
     DECLINE_MESSAGE,
     ClauseDrafter,
+    decline_reason,
     strip_citations,
 )
 from rag_revops.clause_finder import ClauseOption
@@ -96,6 +97,28 @@ def test_explicit_decline_message_is_flagged():
     assert result.citations == []
 
 
+def test_decline_detected_when_message_is_a_prefix_with_explanation():
+    # Real model behavior: decline sentence + a follow-on explanation. Must still
+    # be treated as a decline (not rendered as a clause / copy block).
+    text = (
+        f"{DECLINE_MESSAGE}\n\nThe two examples retrieved ([1] and [2]) both "
+        "originate from the same franchise agreement and don't generalize."
+    )
+    result = _drafter(text).draft("non-compete", [_opt("A"), _opt("B")])
+
+    assert result.declined is True
+    assert result.citations == []
+
+
+def test_decline_reason_extracts_explanation_after_the_sentence():
+    text = f"{DECLINE_MESSAGE}\n\nBoth examples are franchise-specific."
+    assert decline_reason(text) == "Both examples are franchise-specific."
+
+
+def test_decline_reason_empty_when_only_the_sentence():
+    assert decline_reason(DECLINE_MESSAGE) == ""
+
+
 def test_strip_citations_removes_markers_and_tidies_spacing():
     text = "Either party may terminate for convenience [1] upon 30 days' notice [2]."
     assert strip_citations(text) == (
@@ -113,3 +136,8 @@ def test_strip_citations_handles_grouped_and_leading_markers():
 def test_strip_citations_noop_without_markers():
     text = "Either party may terminate this Agreement for convenience."
     assert strip_citations(text) == text
+
+
+def test_strip_citations_clears_parenthetical_left_holding_only_markers():
+    text = "The two examples ([1] and [2]) both cap liability."
+    assert strip_citations(text) == "The two examples both cap liability."
