@@ -455,15 +455,37 @@ def render_clause() -> None:
                 found = finder.find(run_query)
                 result = drafter.draft(run_query, found.options)
 
-            if result.declined or not found.options:
-                st.warning(
-                    "Not enough example language in the corpus to draft that clause."
-                )
+            if not found.options:
+                # Retrieval found nothing above the relevance floor.
+                st.warning("No passages in the corpus match that clause.")
                 st.caption(
-                    f"Reranked {found.n_considered} candidate passages; none were a "
-                    "strong enough match to ground a suggestion, so the system "
-                    "declines rather than inventing language."
+                    f"Reranked {found.n_considered} candidate passages; none scored "
+                    "above the relevance floor, so there's nothing to draft from."
                 )
+            elif result.declined:
+                # Passages were retrieved, but the model judged they can't ground a
+                # reusable clause. Show why — but NO copy block: there's no clause
+                # language to paste into an order form.
+                from rag_revops.clause_drafting import decline_reason
+
+                st.warning(
+                    "Couldn't draft a reusable clause grounded in the corpus for "
+                    "that request."
+                )
+                reason = decline_reason(result.draft)
+                if reason:
+                    st.markdown(reason)
+                st.caption(
+                    "The corpus didn't contain language that generalizes to this "
+                    "clause, so nothing is offered to copy rather than inventing it."
+                )
+                st.subheader("Passages considered")
+                for i, o in enumerate(found.options, start=1):
+                    with st.expander(f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"):
+                        st.markdown(f"> {o.text}")
+                        st.caption(
+                            f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`"
+                        )
             else:
                 st.success("Suggested clause language")
                 st.markdown(result.draft)
@@ -473,7 +495,8 @@ def render_clause() -> None:
                 )
 
                 # Clean, citation-free version to drop straight into an order form.
-                # st.code renders a one-click copy button.
+                # st.code renders a one-click copy button. Only shown on a real
+                # draft — never on a decline.
                 from rag_revops.clause_drafting import strip_citations
 
                 st.markdown("**Copy for an order form** (citations removed):")
