@@ -11,9 +11,9 @@ Three modes:
   • Find contracts         — cross-corpus analytical retrieval: "which contracts
                              have X", using an LLM judge that recognizes clauses
                              phrased differently from the query.
-  • Find clause language   — precision retrieval for drafting: "example language
-                             for a termination-for-convenience clause", ranked by
-                             the cross-encoder reranker (its score IS the signal).
+  • Find clause language   — drafting: the reranker pulls the most on-point real
+                             passages, then Claude drafts suggested language for a
+                             NEW contract, grounded in and citing those passages.
 
 Deployed on Streamlit Community Cloud from this repo; it reruns on every push.
 """
@@ -162,6 +162,7 @@ def _build_clause(fingerprint: str):
     from rag_revops.config import load_secrets, load_settings
 
     load_secrets.cache_clear()
+    from rag_revops.clause_drafting import ClauseDrafter
     from rag_revops.clause_finder import ClauseFinder
     from rag_revops.embeddings import CohereEmbedder
     from rag_revops.vectorstore import ChromaStore
@@ -169,7 +170,9 @@ def _build_clause(fingerprint: str):
     settings = load_settings()
     store = ChromaStore(settings.vectorstore)
     embedder = CohereEmbedder(settings.embeddings)
-    return ClauseFinder(settings, store, embedder)
+    finder = ClauseFinder(settings, store, embedder)
+    drafter = ClauseDrafter(settings)
+    return finder, drafter
 
 
 @st.cache_resource(show_spinner=False)
@@ -404,11 +407,12 @@ def render_analytical() -> None:
 
 def render_clause() -> None:
     st.caption(
-        "Ask for **example language** for a clause — the tool pulls real passages "
-        "from the corpus that you can reuse as drafting references, ranked by a "
-        "cross-encoder reranker, each citing the contract it came from. This is the "
-        "reranker's strong suit: it surfaces the passages that most literally "
-        "express the clause you asked for."
+        "Ask for a clause and get **suggested language for a new contract** — Claude "
+        "drafts it, grounded in real passages the cross-encoder reranker pulls from "
+        "the corpus, and cites the source contracts with inline `[n]` markers. The "
+        "reranker finds the most on-point examples; the draft turns them into "
+        "reusable language you can adapt. It declines rather than inventing a clause "
+        "the corpus can't support."
     )
 
     examples = [
@@ -427,7 +431,7 @@ def render_clause() -> None:
             key="cl_input",
         )
     with cols[1]:
-        find = st.button("Find language", type="primary", use_container_width=True)
+        find = st.button("Draft clause", type="primary", use_container_width=True)
 
     ex_cols = st.columns(len(examples))
     for i, ex in enumerate(examples):
@@ -442,29 +446,45 @@ def render_clause() -> None:
 
     if find and question.strip():
         try:
-            finder = _build_clause(anthropic_key[-4:] + cohere_key[-4:])
+            finder, drafter = _build_clause(anthropic_key[-4:] + cohere_key[-4:])
             run_query = _rewrite_and_show(question.strip())
-            with st.spinner("Retrieving and reranking candidate clauses…"):
-                result = finder.find(run_query)
+            with st.spinner("Retrieving example language and drafting a clause…"):
+                found = finder.find(run_query)
+                result = drafter.draft(run_query, found.options)
 
-            if not result.options:
-                st.warning("No passages in the corpus clearly match that clause.")
+            if result.declined or not found.options:
+                st.warning(
+                    "Not enough example language in the corpus to draft that clause."
+                )
                 st.caption(
-                    f"Reranked {result.n_considered} candidate passages; none scored "
-                    "above the relevance floor, so nothing is shown rather than "
-                    "offering weak language."
+                    f"Reranked {found.n_considered} candidate passages; none were a "
+                    "strong enough match to ground a suggestion, so the system "
+                    "declines rather than inventing language."
                 )
             else:
-                st.success(
-                    f"{len(result.options)} example clause(s), ranked by the reranker"
+                st.success("Suggested clause language")
+                st.markdown(result.draft)
+                st.caption(
+                    "Drafted from real contract language and grounded in the cited "
+                    "sources below — adapt before use; not legal advice."
                 )
-                for i, o in enumerate(result.options, start=1):
-                    with st.expander(
-                        f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}",
-                        expanded=(i == 1),
-                    ):
-                        st.markdown(f"> {o.text}")
-                        st.caption(f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`")
+                if result.citations:
+                    st.subheader("Sources")
+                    # marker i maps to found.options[i-1] (the numbering the model saw)
+                    for i, o in enumerate(found.options, start=1):
+                        if o not in result.citations:
+                            continue
+                        with st.expander(
+                            f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"
+                        ):
+                            st.markdown(f"> {o.text}")
+                            st.caption(
+                                f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`"
+                            )
+                else:
+                    st.error(
+                        "Draft produced no inline citations — flagging for review."
+                    )
         except Exception as exc:  # noqa: BLE001
             st.error(f"Something went wrong: {exc}")
             st.caption("Check that both API keys are valid and have available credit.")
