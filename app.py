@@ -6,8 +6,8 @@ only in Streamlit session state for the browser session — never written to dis
 never logged, never committed.
 
 Two modes:
-  • Ask about a contract   — pick one contract (or search all), then get a grounded
-                             answer with inline citations, or an explicit decline.
+  • Ask about a contract   — pick one contract, then get a grounded answer with
+                             inline citations, or an explicit decline.
   • Find contracts         — cross-corpus analytical retrieval: "which contracts
                              have X", using an LLM judge that recognizes clauses
                              phrased differently from the query.
@@ -209,7 +209,7 @@ def render_single_doc() -> None:
     st.caption(
         "Pick a contract, then ask about it — the answer draws only from that "
         "contract and cites the passages it used, or declines rather than guessing. "
-        "Or toggle **Search all contracts** to ask across the whole corpus."
+        "To ask across the whole corpus, use **Find contracts across the corpus**."
     )
 
     # Keys are guaranteed present here (app st.stop()s earlier otherwise).
@@ -221,24 +221,17 @@ def render_single_doc() -> None:
         st.error(f"Couldn't load contracts: {exc}")
         return
 
-    search_all = st.toggle(
-        "Search all contracts (instead of one)",
-        value=False,
-        help="On: ask across the entire corpus. Off: restrict to the contract you pick.",
-    )
-
+    # Searchable single-select. Streamlit's selectbox filters as you type.
     selected: str | None = None
-    if not search_all:
-        # Searchable single-select. Streamlit's selectbox filters as you type.
-        if contracts:
-            selected = st.selectbox(
-                "Contract",
-                options=contracts,
-                index=0,
-                help="Type to filter the list.",
-            )
-        else:
-            st.caption("Enter your keys to load the contract list.")
+    if contracts:
+        selected = st.selectbox(
+            "Contract",
+            options=contracts,
+            index=0,
+            help="Type to filter the list.",
+        )
+    else:
+        st.caption("Enter your keys to load the contract list.")
 
     examples = [
         "Can either party terminate for convenience, and with how much notice?",
@@ -273,14 +266,14 @@ def render_single_doc() -> None:
         )
 
     if ask and question.strip():
+        if not selected:
+            st.warning("Pick a contract first.")
+            return
         try:
             pipeline, _ = _build_single_doc(anthropic_key[-4:] + cohere_key[-4:])
             run_query = _rewrite_and_show(question.strip())
-            scope = "the whole corpus" if search_all else f"contract {selected}"
-            with st.spinner(f"Retrieving from {scope} and grounding an answer…"):
-                result = pipeline.ask(
-                    run_query, doc_id=None if search_all else selected
-                )
+            with st.spinner(f"Retrieving from contract {selected} and grounding an answer…"):
+                result = pipeline.ask(run_query, doc_id=selected)
 
             if result.declined:
                 st.warning(f"**Declined:** {result.answer}")
