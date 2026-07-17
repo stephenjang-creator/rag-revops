@@ -20,13 +20,15 @@ Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthrop
 
 ## What it does
 
-**Two modes over the same corpus:**
+**Three modes over the same corpus:**
 
 **1. Ask about a contract** — pick one contract (searchable list) and ask in plain English. The answer draws only from that contract, cites the passages it used with inline `\[n]` markers, and declines when the contract doesn't cover the question. To ask across the whole corpus, use mode 2.
 
 **2. Find contracts across the corpus** — "which contracts allow termination for convenience?" scans every contract and returns the matching set, each with a one-line reason and citation. This is the harder capability, and the interesting one: it recognizes clauses that mean the same thing but are worded completely differently.
 
-**Query rewriting** sits in front of both. A Deal Desk user types "can either party do a TFC" and the system reformulates it to "Can either party terminate this agreement for convenience, and what notice is required?" before retrieving — expanding abbreviations and jargon into contract language, and showing the interpretation so the user can see and trust what was searched.
+**3. Find clause language** — "give me some language options for a termination-for-convenience clause" (or an NDA, a limitation of liability, an indemnity). Returns real passages from the corpus to reuse as drafting references, each citing the contract it came from. This is the **cross-encoder reranker's** use case — the exact opposite of mode 2. Where mode 2 must *suppress* the reranker (it scores paraphrased clauses near zero), mode 3 is precision retrieval: the user wants the passages that most *literally* express the clause, so the reranker's calibrated score becomes the signal, gating which passages are good enough to surface.
+
+**Query rewriting** sits in front of all three. A Deal Desk user types "can either party do a TFC" and the system reformulates it to "Can either party terminate this agreement for convenience, and what notice is required?" before retrieving — expanding abbreviations and jargon into contract language, and showing the interpretation so the user can see and trust what was searched.
 
 \---
 
