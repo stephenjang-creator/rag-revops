@@ -5,11 +5,32 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rag-revops"
 version = "0.1.0"
-description = "Grounded, citation-enforced Q&A over public Revenue Operations documents"
+description = "Deal Desk Helper — citation-grounded contract analysis (RAG) over public CUAD data, with an LLM-judge for cross-corpus clause retrieval"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Stephen Jang" }]
+keywords = [
+    "rag",
+    "retrieval-augmented-generation",
+    "contract-analysis",
+    "llm",
+    "langgraph",
+    "reranking",
+    "citations",
+    "evaluation",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+]
+
+[project.urls]
+"Live demo" = "https://rag-revops.streamlit.app"
+"Source" = "https://github.com/stephenjang-creator/rag-revops"
 
 dependencies = [
     # Orchestration

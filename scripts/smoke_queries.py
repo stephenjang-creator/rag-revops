@@ -5,7 +5,7 @@ metrics sink have a real distribution to work with (percentiles need spread).
 Includes a couple of deliberately off-corpus questions to exercise the decline
 path, so citation-coverage and decline-rate aren't trivially 100%/0%.
 
-    python smoke_queries.py
+    python scripts/smoke_queries.py
     python -m rag_revops.metrics_report      # then read the numbers
 """
 
@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import time
 
-from rag_revops.graph import RagPipeline
 from rag_revops.analytical import AnalyticalRetriever
 from rag_revops.analytical_generation import AnalyticalGenerator
 from rag_revops.config import load_settings
 from rag_revops.embeddings import CohereEmbedder
+from rag_revops.graph import RagPipeline
 from rag_revops.vectorstore import ChromaStore
 
 # Single-doc questions (some answerable, one likely to decline).
