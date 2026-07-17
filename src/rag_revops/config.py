@@ -104,6 +104,23 @@ class ClauseConfig(BaseModel):
     min_relevance: float = 0.30  # cross-encoder floor to count as usable language
 
 
+class RewriteConfig(BaseModel):
+    """Query rewriting runs on EVERY query in every mode, but it's a tiny call, so
+    it can run on a cheaper provider than the main generation model.
+
+    Defaults to Cohere's `command` model — the app already collects a Cohere key
+    (for embeddings + rerank) and Cohere's trial keys are free, so this keeps query
+    rewrite off the Anthropic bill with no extra key or dependency. Falls back to
+    Anthropic automatically when no Cohere key is present. Each provider path uses
+    its own model id so a fallback never sends a Cohere id to Anthropic.
+    """
+    provider: str = "cohere"                    # "cohere" | "anthropic"
+    cohere_model: str = "command-r-08-2024"
+    anthropic_model: str = "claude-sonnet-4-6"
+    temperature: float = 0.0
+    max_tokens: int = 200
+
+
 class GenerationConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-6"
@@ -147,6 +164,7 @@ class Settings(BaseModel):
     rerank: RerankConfig = Field(default_factory=RerankConfig)
     analytical: AnalyticalConfig = Field(default_factory=AnalyticalConfig)
     clause: ClauseConfig = Field(default_factory=ClauseConfig)
+    rewrite: RewriteConfig = Field(default_factory=RewriteConfig)
     generation: GenerationConfig = Field(default_factory=GenerationConfig)
     eval: EvalConfig = Field(default_factory=EvalConfig)
     analytical_eval: AnalyticalEvalConfig = Field(default_factory=AnalyticalEvalConfig)

@@ -36,6 +36,17 @@ clause:
   max_options: 6            # distinct example clauses returned (best per contract)
   min_relevance: 0.30       # cross-encoder floor to count as usable language
 
+# Query rewriting runs on every query. It's a tiny call, so it defaults to Cohere's
+# free-tier `command` model — reusing the Cohere key the app already collects, no
+# extra key or dependency. Falls back to Anthropic automatically when no Cohere key
+# is configured.
+rewrite:
+  provider: "cohere"          # "cohere" | "anthropic"
+  cohere_model: "command-r-08-2024"
+  anthropic_model: "claude-sonnet-4-6"
+  temperature: 0.0
+  max_tokens: 200
+
 generation:
   provider: "anthropic"
   model: "claude-sonnet-4-6"
