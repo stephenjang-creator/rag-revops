@@ -5,7 +5,10 @@ the visitor pastes their own Anthropic + Cohere keys into the sidebar. Keys live
 only in Streamlit session state for the browser session — never written to disk,
 never logged, never committed.
 
-Three modes:
+Modes:
+  • Ask anything (auto)    — an LLM router reads the question and dispatches to one
+                             of the three skills below; shows which it chose, and
+                             declines to guess when the intent is ambiguous.
   • Draft clause language  — the reranker pulls the most on-point real passages,
                              then Claude drafts suggested language for a NEW
                              contract, grounded in and citing those passages. A
@@ -90,9 +93,10 @@ st.markdown(
 st.title("📄 Deal Desk Helper")
 st.caption(
     "Citation-grounded analysis over **public** contract data (CUAD, CC BY 4.0). "
-    "Draft new clause language grounded in real contracts, find which contracts "
-    "across the corpus contain a given clause — even when they phrase it "
-    "differently — or ask about a single contract. "
+    "Ask in plain English and let it route automatically, or pick a mode: draft new "
+    "clause language grounded in real contracts, find which contracts across the "
+    "corpus contain a given clause — even when they phrase it differently — or ask "
+    "about a single contract. "
     "**Human-in-the-loop by design: it cites its sources, or declines rather than guessing.**"
 )
 st.markdown('<div class="dd-rule"></div>', unsafe_allow_html=True)
@@ -178,6 +182,16 @@ def _build_clause(fingerprint: str):
 
 
 @st.cache_resource(show_spinner=False)
+def _build_router(fingerprint: str):
+    from rag_revops.config import load_secrets, load_settings
+
+    load_secrets.cache_clear()
+    from rag_revops.router import QueryRouter
+
+    return QueryRouter(load_settings())
+
+
+@st.cache_resource(show_spinner=False)
 def _build_rewriter(fingerprint: str):
     from rag_revops.config import load_secrets, load_settings
 
@@ -191,6 +205,7 @@ def _build_rewriter(fingerprint: str):
 # Mode selection
 # ---------------------------------------------------------------------------
 
+MODE_AUTO = "Ask anything (auto)"
 MODE_CLAUSE = "Draft clause language"
 MODE_ANALYTICAL = "Find contracts with clauses"
 MODE_SINGLE = "Ask about a contract"
@@ -220,10 +235,116 @@ if not keys_ready:
 # From here down, keys are present — show the full query interface.
 mode = st.radio(
     "Mode",
-    [MODE_CLAUSE, MODE_ANALYTICAL, MODE_SINGLE],
+    [MODE_AUTO, MODE_CLAUSE, MODE_ANALYTICAL, MODE_SINGLE],
     horizontal=True,
     label_visibility="collapsed",
 )
+
+
+# ===========================================================================
+# Shared result renderers — used by both the dedicated modes and Auto mode.
+# ===========================================================================
+
+def _render_single_result(result) -> None:
+    if result.declined:
+        st.warning(f"**Declined:** {result.answer}")
+        st.caption(
+            "The system declined because retrieved passages didn't clearly "
+            "support an answer — by design, it does not guess."
+        )
+    else:
+        st.success("Answer")
+        st.markdown(result.answer)
+        if result.citations:
+            st.subheader("Sources")
+            for c in result.citations:
+                with st.expander(
+                    f"[{c.marker}]  {c.source_path}  ·  score {c.score:.3f}"
+                ):
+                    st.markdown(f"> {c.snippet}…")
+                    st.caption(f"chunk id: `{c.chunk_id}`")
+        else:
+            st.error("Answer produced no inline citations — flagging for review.")
+
+
+def _render_analytical_result(result) -> None:
+    if not result.findings:
+        st.warning("No contracts in the corpus match that criterion.")
+        st.caption(
+            f"Scanned {result.n_candidates} candidate contracts; the judge "
+            "confirmed none."
+        )
+    else:
+        st.success(
+            f"{len(result.findings)} of {result.n_candidates} contracts match"
+        )
+        for f in result.findings:
+            with st.expander(f"📄 {f.doc_id}", expanded=True):
+                st.markdown(f.reason)
+                st.caption(
+                    f"rerank relevance {f.score:.3f} "
+                    "(low is expected — the judge, not the reranker, "
+                    "confirmed this match by meaning)"
+                )
+
+
+def _render_clause_result(found, result) -> None:
+    if not found.options:
+        st.warning("No passages in the corpus match that clause.")
+        st.caption(
+            f"Reranked {found.n_considered} candidate passages; none scored "
+            "above the relevance floor, so there's nothing to draft from."
+        )
+    elif result.declined:
+        # Passages were retrieved, but the model judged they can't ground a
+        # reusable clause. Show why — but NO copy block: there's no clause
+        # language to paste into an order form.
+        from rag_revops.clause_drafting import decline_reason
+
+        st.warning(
+            "Couldn't draft a reusable clause grounded in the corpus for that "
+            "request."
+        )
+        reason = decline_reason(result.draft)
+        if reason:
+            st.markdown(reason)
+        st.caption(
+            "The corpus didn't contain language that generalizes to this clause, "
+            "so nothing is offered to copy rather than inventing it."
+        )
+        st.subheader("Passages considered")
+        for i, o in enumerate(found.options, start=1):
+            with st.expander(f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"):
+                st.markdown(f"> {o.text}")
+                st.caption(f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`")
+    else:
+        st.success("Suggested clause language")
+        st.markdown(result.draft)
+        st.caption(
+            "Drafted from real contract language and grounded in the cited "
+            "sources below — adapt before use; not legal advice."
+        )
+
+        # Clean, citation-free version to drop straight into an order form.
+        # st.code renders a one-click copy button. Only shown on a real draft.
+        from rag_revops.clause_drafting import strip_citations
+
+        st.markdown("**Copy for an order form** (citations removed):")
+        st.code(strip_citations(result.draft), language=None)
+
+        if result.citations:
+            st.subheader("Sources")
+            # marker i maps to found.options[i-1] (the numbering the model saw)
+            for i, o in enumerate(found.options, start=1):
+                if o not in result.citations:
+                    continue
+                with st.expander(f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"):
+                    st.markdown(f"> {o.text}")
+                    st.caption(
+                        f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`"
+                    )
+        else:
+            st.error("Draft produced no inline citations — flagging for review.")
 
 
 # ===========================================================================
@@ -299,26 +420,7 @@ def render_single_doc() -> None:
             run_query = _rewrite_and_show(question.strip())
             with st.spinner(f"Retrieving from contract {selected} and grounding an answer…"):
                 result = pipeline.ask(run_query, doc_id=selected)
-
-            if result.declined:
-                st.warning(f"**Declined:** {result.answer}")
-                st.caption(
-                    "The system declined because retrieved passages didn't clearly "
-                    "support an answer — by design, it does not guess."
-                )
-            else:
-                st.success("Answer")
-                st.markdown(result.answer)
-                if result.citations:
-                    st.subheader("Sources")
-                    for c in result.citations:
-                        with st.expander(
-                            f"[{c.marker}]  {c.source_path}  ·  score {c.score:.3f}"
-                        ):
-                            st.markdown(f"> {c.snippet}…")
-                            st.caption(f"chunk id: `{c.chunk_id}`")
-                else:
-                    st.error("Answer produced no inline citations — flagging for review.")
+            _render_single_result(result)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Something went wrong: {exc}")
             st.caption("Check that both API keys are valid and have available credit.")
@@ -380,25 +482,7 @@ def render_analytical() -> None:
             with st.spinner("Scanning the corpus and judging each contract… (~30–60s)"):
                 matches = retriever.retrieve(run_query)
                 result = generator.generate(run_query, matches)
-
-            if not result.findings:
-                st.warning("No contracts in the corpus match that criterion.")
-                st.caption(
-                    f"Scanned {result.n_candidates} candidate contracts; the judge "
-                    "confirmed none."
-                )
-            else:
-                st.success(
-                    f"{len(result.findings)} of {result.n_candidates} contracts match"
-                )
-                for f in result.findings:
-                    with st.expander(f"📄 {f.doc_id}", expanded=True):
-                        st.markdown(f.reason)
-                        st.caption(
-                            f"rerank relevance {f.score:.3f} "
-                            "(low is expected — the judge, not the reranker, "
-                            "confirmed this match by meaning)"
-                        )
+            _render_analytical_result(result)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Something went wrong: {exc}")
             st.caption("Check that both API keys are valid and have available credit.")
@@ -454,77 +538,121 @@ def render_clause() -> None:
             with st.spinner("Retrieving example language and drafting a clause…"):
                 found = finder.find(run_query)
                 result = drafter.draft(run_query, found.options)
-
-            if not found.options:
-                # Retrieval found nothing above the relevance floor.
-                st.warning("No passages in the corpus match that clause.")
-                st.caption(
-                    f"Reranked {found.n_considered} candidate passages; none scored "
-                    "above the relevance floor, so there's nothing to draft from."
-                )
-            elif result.declined:
-                # Passages were retrieved, but the model judged they can't ground a
-                # reusable clause. Show why — but NO copy block: there's no clause
-                # language to paste into an order form.
-                from rag_revops.clause_drafting import decline_reason
-
-                st.warning(
-                    "Couldn't draft a reusable clause grounded in the corpus for "
-                    "that request."
-                )
-                reason = decline_reason(result.draft)
-                if reason:
-                    st.markdown(reason)
-                st.caption(
-                    "The corpus didn't contain language that generalizes to this "
-                    "clause, so nothing is offered to copy rather than inventing it."
-                )
-                st.subheader("Passages considered")
-                for i, o in enumerate(found.options, start=1):
-                    with st.expander(f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"):
-                        st.markdown(f"> {o.text}")
-                        st.caption(
-                            f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`"
-                        )
-            else:
-                st.success("Suggested clause language")
-                st.markdown(result.draft)
-                st.caption(
-                    "Drafted from real contract language and grounded in the cited "
-                    "sources below — adapt before use; not legal advice."
-                )
-
-                # Clean, citation-free version to drop straight into an order form.
-                # st.code renders a one-click copy button. Only shown on a real
-                # draft — never on a decline.
-                from rag_revops.clause_drafting import strip_citations
-
-                st.markdown("**Copy for an order form** (citations removed):")
-                st.code(strip_citations(result.draft), language=None)
-
-                if result.citations:
-                    st.subheader("Sources")
-                    # marker i maps to found.options[i-1] (the numbering the model saw)
-                    for i, o in enumerate(found.options, start=1):
-                        if o not in result.citations:
-                            continue
-                        with st.expander(
-                            f"[{i}]  {o.doc_id}  ·  relevance {o.score:.3f}"
-                        ):
-                            st.markdown(f"> {o.text}")
-                            st.caption(
-                                f"source: `{o.source_path}`  ·  chunk `{o.chunk_id}`"
-                            )
-                else:
-                    st.error(
-                        "Draft produced no inline citations — flagging for review."
-                    )
+            _render_clause_result(found, result)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Something went wrong: {exc}")
             st.caption("Check that both API keys are valid and have available credit.")
 
 
-if mode == MODE_CLAUSE:
+# ===========================================================================
+# MODE 0 — Auto: route the question to the right skill
+# ===========================================================================
+
+_SKILL_LABELS = {
+    "ask_one_contract": "Ask about a contract",
+    "find_contracts": "Find contracts with clauses",
+    "draft_clause": "Draft clause language",
+}
+
+
+def render_auto() -> None:
+    from rag_revops.router import (
+        SKILL_ASK_ONE,
+        SKILL_DRAFT,
+        SKILL_FIND_MANY,
+        resolve_contract,
+    )
+
+    st.caption(
+        "Ask in plain English — the router reads your question and picks the right "
+        "skill: answer about **one** contract, **find** which contracts have a "
+        "clause, or **draft** new clause language for an order form. It shows you "
+        "which it chose, and you can always switch to a specific mode above."
+    )
+
+    examples = [
+        "What does the Pizza Fusion franchise agreement say about termination?",
+        "Which contracts allow termination for convenience?",
+        "Draft a mutual NDA clause for an order form",
+    ]
+
+    cols = st.columns([4, 1])
+    with cols[0]:
+        question = st.text_input(
+            "Question",
+            label_visibility="collapsed",
+            placeholder="e.g. Which contracts cap liability?",
+            key="auto_input",
+        )
+    with cols[1]:
+        ask = st.button("Ask", type="primary", use_container_width=True)
+
+    ex_cols = st.columns(len(examples))
+    for i, ex in enumerate(examples):
+        ex_cols[i].button(
+            f"Example {i + 1}",
+            help=ex,
+            use_container_width=True,
+            key=f"auto_ex{i}",
+            on_click=_set_example,
+            args=("auto_input", ex),
+        )
+
+    if not (ask and question.strip()):
+        return
+
+    fp = anthropic_key[-4:] + cohere_key[-4:]
+    try:
+        router = _build_router(fp)
+        with st.spinner("Routing your question to the right skill…"):
+            decision = router.route(question.strip())
+
+        label = _SKILL_LABELS.get(decision.skill, decision.skill)
+        st.info(f"🧭 Routed to **{label}** — {decision.reason}")
+
+        if decision.needs_clarification:
+            st.warning(
+                "This could be interpreted a few ways. Rephrase, or pick a specific "
+                "mode above (e.g. ask about one contract vs. search across all)."
+            )
+            return
+
+        run_query = _rewrite_and_show(question.strip())
+
+        if decision.skill == SKILL_ASK_ONE:
+            pipeline, store = _build_single_doc(fp)
+            doc_id = resolve_contract(decision.contract_hint, store.list_contracts())
+            if not doc_id:
+                st.warning(
+                    "I couldn't tell which contract you meant. Switch to **Ask about "
+                    "a contract** and pick it from the list."
+                )
+                return
+            with st.spinner(f"Retrieving from contract {doc_id} and grounding an answer…"):
+                result = pipeline.ask(run_query, doc_id=doc_id)
+            _render_single_result(result)
+
+        elif decision.skill == SKILL_FIND_MANY:
+            retriever, generator = _build_analytical(fp)
+            with st.spinner("Scanning the corpus and judging each contract… (~30–60s)"):
+                matches = retriever.retrieve(run_query)
+                result = generator.generate(run_query, matches)
+            _render_analytical_result(result)
+
+        elif decision.skill == SKILL_DRAFT:
+            finder, drafter = _build_clause(fp)
+            with st.spinner("Retrieving example language and drafting a clause…"):
+                found = finder.find(run_query)
+                result = drafter.draft(run_query, found.options)
+            _render_clause_result(found, result)
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Something went wrong: {exc}")
+        st.caption("Check that both API keys are valid and have available credit.")
+
+
+if mode == MODE_AUTO:
+    render_auto()
+elif mode == MODE_CLAUSE:
     render_clause()
 elif mode == MODE_ANALYTICAL:
     render_analytical()
