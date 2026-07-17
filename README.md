@@ -22,7 +22,7 @@ Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthrop
 
 **Two modes over the same corpus:**
 
-**1. Ask about a contract** — pick one contract (searchable list) and ask in plain English. The answer draws only from that contract, cites the passages it used with inline `\[n]` markers, and declines when the contract doesn't cover the question. A "search all contracts" toggle widens the scope when you want it.
+**1. Ask about a contract** — pick one contract (searchable list) and ask in plain English. The answer draws only from that contract, cites the passages it used with inline `\[n]` markers, and declines when the contract doesn't cover the question. To ask across the whole corpus, use mode 2.
 
 **2. Find contracts across the corpus** — "which contracts allow termination for convenience?" scans every contract and returns the matching set, each with a one-line reason and citation. This is the harder capability, and the interesting one: it recognizes clauses that mean the same thing but are worded completely differently.
 
