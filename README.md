@@ -20,6 +20,10 @@ Built to cut the escalation tax: the constant back-and-forth where a rep pings D
 
 Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthropic + Cohere keys into the sidebar — they live only in your browser session, never logged, never committed. Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.
 
+![Auto mode routing a plain-English request to the clause-drafting skill: the routed skill and its rationale, the interpreted query, and grounded suggested clause language](docs/screenshot-auto-mode.png)
+
+*Auto mode in action: the plain-English request "give me some wording to cap liability" is routed to the clause-drafting skill (with the reason shown), rewritten into a precise query, and answered with clause language drafted from — and grounded in — the corpus.*
+
 ---
 
 ## Engineering highlights
