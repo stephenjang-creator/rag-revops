@@ -6,14 +6,16 @@ only in Streamlit session state for the browser session — never written to dis
 never logged, never committed.
 
 Three modes:
+  • Draft clause language  — the reranker pulls the most on-point real passages,
+                             then Claude drafts suggested language for a NEW
+                             contract, grounded in and citing those passages. A
+                             citation-free copy is offered for pasting into an
+                             order form. This is the default mode.
+  • Find contracts with clauses — cross-corpus analytical retrieval: "which
+                             contracts have X", using an LLM judge that recognizes
+                             clauses phrased differently from the query.
   • Ask about a contract   — pick one contract, then get a grounded answer with
                              inline citations, or an explicit decline.
-  • Find contracts         — cross-corpus analytical retrieval: "which contracts
-                             have X", using an LLM judge that recognizes clauses
-                             phrased differently from the query.
-  • Find clause language   — drafting: the reranker pulls the most on-point real
-                             passages, then Claude drafts suggested language for a
-                             NEW contract, grounded in and citing those passages.
 
 Deployed on Streamlit Community Cloud from this repo; it reruns on every push.
 """
@@ -88,9 +90,9 @@ st.markdown(
 st.title("📄 Deal Desk Helper")
 st.caption(
     "Citation-grounded analysis over **public** contract data (CUAD, CC BY 4.0). "
-    "Ask about a single contract, find which contracts across the corpus contain "
-    "a given clause — even when they phrase it differently — or pull example clause "
-    "language to reuse. "
+    "Draft new clause language grounded in real contracts, find which contracts "
+    "across the corpus contain a given clause — even when they phrase it "
+    "differently — or ask about a single contract. "
     "**Human-in-the-loop by design: it cites its sources, or declines rather than guessing.**"
 )
 st.markdown('<div class="dd-rule"></div>', unsafe_allow_html=True)
@@ -189,9 +191,9 @@ def _build_rewriter(fingerprint: str):
 # Mode selection
 # ---------------------------------------------------------------------------
 
+MODE_CLAUSE = "Draft clause language"
+MODE_ANALYTICAL = "Find contracts with clauses"
 MODE_SINGLE = "Ask about a contract"
-MODE_ANALYTICAL = "Find contracts across the corpus"
-MODE_CLAUSE = "Find clause language"
 
 
 def _set_example(input_key: str, text: str) -> None:
@@ -218,7 +220,7 @@ if not keys_ready:
 # From here down, keys are present — show the full query interface.
 mode = st.radio(
     "Mode",
-    [MODE_SINGLE, MODE_ANALYTICAL, MODE_CLAUSE],
+    [MODE_CLAUSE, MODE_ANALYTICAL, MODE_SINGLE],
     horizontal=True,
     label_visibility="collapsed",
 )
@@ -232,7 +234,7 @@ def render_single_doc() -> None:
     st.caption(
         "Pick a contract, then ask about it — the answer draws only from that "
         "contract and cites the passages it used, or declines rather than guessing. "
-        "To ask across the whole corpus, use **Find contracts across the corpus**."
+        "To ask across the whole corpus, use **Find contracts with clauses**."
     )
 
     # Keys are guaranteed present here (app st.stop()s earlier otherwise).
@@ -468,6 +470,14 @@ def render_clause() -> None:
                     "Drafted from real contract language and grounded in the cited "
                     "sources below — adapt before use; not legal advice."
                 )
+
+                # Clean, citation-free version to drop straight into an order form.
+                # st.code renders a one-click copy button.
+                from rag_revops.clause_drafting import strip_citations
+
+                st.markdown("**Copy for an order form** (citations removed):")
+                st.code(strip_citations(result.draft), language=None)
+
                 if result.citations:
                     st.subheader("Sources")
                     # marker i maps to found.options[i-1] (the numbering the model saw)
@@ -490,9 +500,9 @@ def render_clause() -> None:
             st.caption("Check that both API keys are valid and have available credit.")
 
 
-if mode == MODE_SINGLE:
-    render_single_doc()
+if mode == MODE_CLAUSE:
+    render_clause()
 elif mode == MODE_ANALYTICAL:
     render_analytical()
 else:
-    render_clause()
+    render_single_doc()

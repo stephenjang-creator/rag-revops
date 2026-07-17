@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import pytest
 
-from rag_revops.clause_drafting import DECLINE_MESSAGE, ClauseDrafter
+from rag_revops.clause_drafting import (
+    DECLINE_MESSAGE,
+    ClauseDrafter,
+    strip_citations,
+)
 from rag_revops.clause_finder import ClauseOption
 from rag_revops.config import load_settings
 
@@ -90,3 +94,22 @@ def test_explicit_decline_message_is_flagged():
 
     assert result.declined is True
     assert result.citations == []
+
+
+def test_strip_citations_removes_markers_and_tidies_spacing():
+    text = "Either party may terminate for convenience [1] upon 30 days' notice [2]."
+    assert strip_citations(text) == (
+        "Either party may terminate for convenience upon 30 days' notice."
+    )
+
+
+def test_strip_citations_handles_grouped_and_leading_markers():
+    text = "[1] The Receiving Party shall keep [2, 3] Confidential Information secret."
+    assert strip_citations(text) == (
+        "The Receiving Party shall keep Confidential Information secret."
+    )
+
+
+def test_strip_citations_noop_without_markers():
+    text = "Either party may terminate this Agreement for convenience."
+    assert strip_citations(text) == text
