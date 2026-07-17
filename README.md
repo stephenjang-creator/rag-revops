@@ -30,7 +30,7 @@ Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthrop
 
 **3. Ask about a contract** — pick one contract (searchable list) and ask in plain English. The answer draws only from that contract, cites the passages it used with inline `\[n]` markers, and declines when the contract doesn't cover the question. To ask across the whole corpus, use mode 2.
 
-**Query rewriting** sits in front of all three. A Deal Desk user types "can either party do a TFC" and the system reformulates it to "Can either party terminate this agreement for convenience, and what notice is required?" before retrieving — expanding abbreviations and jargon into contract language, and showing the interpretation so the user can see and trust what was searched.
+**Query rewriting** sits in front of all three. A Deal Desk user types "can either party do a TFC" and the system reformulates it to "Can either party terminate this agreement for convenience, and what notice is required?" before retrieving — expanding abbreviations and jargon into contract language, and showing the interpretation so the user can see and trust what was searched. It runs on Cohere's free-tier `command` model by default (reusing the Cohere key already used for embeddings + rerank — no extra key, and it keeps this per-query step off the Anthropic bill), falling back to Anthropic when no Cohere key is present. Configurable via `rewrite.provider` in `config/settings.yaml`.
 
 \---
 
@@ -55,7 +55,7 @@ The fix is to use an **LLM as the membership judge** for cross-corpus queries: C
 Query
   |
   v
-Query rewriting (Claude)  -- "TFC" -> "termination for convenience..."
+Query rewriting (Cohere)  -- "TFC" -> "termination for convenience..."
   |
   +---------------- single-contract mode ----------------+
   |                                                       |
