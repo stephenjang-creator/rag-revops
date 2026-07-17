@@ -336,8 +336,9 @@ def render_analytical() -> None:
         "'termination for convenience'."
     )
     st.info(
-        "⏳ Analytical queries scan every contract and use an LLM judge, so they "
-        "take ~30–60s and use more API credit than single-contract questions.",
+        "⏳ This judges **every** contract in the corpus with an LLM judge (no cap), "
+        "so nothing is missed — but it takes ~30–60s and uses more API credit than "
+        "single-contract questions, scaling with the size of the corpus.",
         icon="⏳",
     )
 
