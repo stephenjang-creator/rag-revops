@@ -28,10 +28,6 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 
-[project.urls]
-"Live demo" = "https://rag-revops.streamlit.app"
-"Source" = "https://github.com/stephenjang-creator/rag-revops"
-
 dependencies = [
     # Orchestration
     "langgraph>=0.2.0",
@@ -60,6 +56,10 @@ dependencies = [
     "typer>=0.12.0",
     "rich>=13.7.0",
 ]
+
+[project.urls]
+"Live demo" = "https://rag-revops.streamlit.app"
+"Source" = "https://github.com/stephenjang-creator/rag-revops"
 
 [project.optional-dependencies]
 dev = [
