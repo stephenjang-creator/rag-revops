@@ -1,3 +1,11 @@
+"""Print how many eval-seed questions fall into each clause category.
+
+A quick corpus-shape sanity check: reads eval/eval_seed.jsonl and tallies the
+category suffix of each question id. Run from the repo root:
+
+    python scripts/category_counts.py
+"""
+
 import json
 from collections import Counter
 

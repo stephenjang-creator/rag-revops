@@ -24,6 +24,8 @@ htmlcov/
 
 # OS
 .DS_Store
+desktop.ini
+Thumbs.db
 
 # Observability metrics sink (local; regenerated from traffic)
 metrics/
