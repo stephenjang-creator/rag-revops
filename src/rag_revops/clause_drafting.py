@@ -14,6 +14,7 @@ it doesn't fabricate language the corpus can't support.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import anthropic
@@ -21,6 +22,20 @@ import anthropic
 from .clause_finder import ClauseOption
 from .config import Settings, load_secrets
 from .observability import count_llm_call, observe, record, record_usage
+
+# Inline citation markers like "[1]" or "[2, 3]", with any leading space/tab so we
+# don't leave a double space behind when we strip them for the clean copy.
+_CITATION_MARKER = re.compile(r"[ \t]*\[\d+(?:\s*,\s*\d+)*\]")
+
+
+def strip_citations(text: str) -> str:
+    """Return the draft with inline [n] citation markers removed, so it can be
+    pasted straight into an order form. Collapses any double spaces left behind."""
+    out = _CITATION_MARKER.sub("", text)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    # Tidy any now-orphaned space before sentence punctuation.
+    out = re.sub(r"[ \t]+([,.;:)])", r"\1", out)
+    return out.strip()
 
 # Emitted verbatim by the model when the retrieved examples don't support a draft,
 # and detected here to flag the decline — kept in one place so prompt and
