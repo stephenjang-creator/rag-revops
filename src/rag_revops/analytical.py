@@ -59,10 +59,12 @@ class AnalyticalRetriever:
     def retrieve(self, query: str) -> list[ContractMatch]:
         a = self.settings.analytical
 
-        # 1. Wide dense fetch. We size the pool to comfortably exceed the number of
-        #    chunks in the store so every contract is represented; Chroma caps at the
-        #    collection size, so over-asking is safe.
-        pool_size = min(a.pool_size, self.store.count())
+        # 1. Wide dense fetch. Default (pool_size=0) fetches the ENTIRE collection
+        #    so every contract is represented regardless of corpus size; a positive
+        #    pool_size caps it for cost control. Chroma caps at the collection size,
+        #    so over-asking is safe either way.
+        count = self.store.count()
+        pool_size = count if a.pool_size <= 0 else min(a.pool_size, count)
         query_vec = self.embedder.embed_query(query)
         pool = self.store.query(query_vec, top_k=pool_size)
         if not pool:
@@ -103,4 +105,8 @@ class AnalyticalRetriever:
                 )
             )
 
-        return matches[: a.max_contracts]
+        # max_contracts=0 (default) judges EVERY contract — the whole set. A
+        # positive cap trims to the top-ranked N for cost control.
+        if a.max_contracts and a.max_contracts > 0:
+            return matches[: a.max_contracts]
+        return matches

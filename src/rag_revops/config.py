@@ -74,11 +74,18 @@ class AnalyticalConfig(BaseModel):
     discretion') near zero and would drop most genuine matches. The reranker is
     used only to ORDER which contracts the judge sees first.
     """
-    # Wide dense pool so every contract is represented at least once. Sized to
-    # exceed the chunk count; Chroma caps at the collection size.
-    pool_size: int = 2000
+    # Dense pool feeding the per-contract collapse. 0 = fetch the ENTIRE
+    # collection, so every contract is represented no matter how large the corpus
+    # grows (Chroma caps at the collection size). A positive value caps the pool
+    # for cost control, at the risk of leaving some contracts unrepresented.
+    pool_size: int = 0
     chunks_per_contract: int = 4  # chunks per contract handed to the LLM judge
-    max_contracts: int = 100      # candidates passed to the judge (all contracts)
+    # Candidate contracts passed to the LLM judge. 0 = judge EVERY contract (the
+    # whole set). A positive value caps it — cheaper, but then a real match ranked
+    # below the cap is never judged. Judging every contract costs more API credit
+    # (one judge call per judge_batch_size contracts); that is the intended
+    # trade-off for complete coverage.
+    max_contracts: int = 0
     judge_batch_size: int = 10    # smaller batches = more careful per-candidate judging
 
 
