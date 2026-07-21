@@ -6,29 +6,42 @@
 [![Lint: Ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-2a6db2.svg)](https://mypy-lang.org/)
 
-**A citation-grounded contract-analysis tool that answers two questions a Deal Desk actually asks — *"what does this contract say about X?"* and *"which contracts across our whole book have clause X?"* — and bridges the gap between how a business user phrases a question and how contracts are actually written.**
+**A citation-grounded contract-analysis tool that answers the two questions a Deal Desk actually gets asked — *"what does this contract say about X?"* and *"which contracts across our whole book have clause X?"* — and bridges the gap between how a business user phrases a question and how contracts are actually written.**
 
-Built to cut the escalation tax: the constant back-and-forth where a rep pings Deal Desk to ask "can this customer terminate for convenience?" or "which of our agreements have uncapped liability?" Those answers live in the contracts; this tool finds them, cites the exact passage, and stays honest — it declines rather than guessing when the documents don't support an answer.
+> **AI-first, human-in-the-loop.** Every answer is grounded in retrieved passages and cites its source. When the documents don't support an answer, the system says so instead of inventing one. Built in Python.
 
-> **AI-first, human-in-the-loop.** Answers are grounded in retrieved passages and cite their source. When support is weak, the system says so instead of hallucinating a clause. Built in Python.
+**[▶ Try the live demo](https://rag-revops.streamlit.app)** &nbsp;·&nbsp; [What it does](#what-it-does) &nbsp;·&nbsp; [Architecture](#architecture) &nbsp;·&nbsp; [How the hard parts got solved](#the-engineering-story-how-the-hard-parts-got-solved)
 
 ---
 
-## 🔗 Live demo
-
-**[Try it → rag-revops.streamlit.app](https://rag-revops.streamlit.app)**
-
-Bring-your-own-key: the hosted demo bakes in no API keys. Paste your own Anthropic + Cohere keys into the sidebar — they live only in your browser session, never logged, never committed. Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.
+## See it work — one box, ask anything
 
 ![Auto mode routing a plain-English request to the clause-drafting skill: the routed skill and its rationale, the interpreted query, and grounded suggested clause language](docs/screenshot-auto-mode.png)
 
-*Auto mode in action: the plain-English request "give me some wording to cap liability" is routed to the clause-drafting skill (with the reason shown), rewritten into a precise query, and answered with clause language drafted from — and grounded in — the corpus.*
+There's no mode to pick. You type a request in plain English and the system works out what you actually want:
+
+1. **A router** reads *"give me some wording to cap liability"* and routes it to the **Draft clause language** skill — and shows *why* it chose that, not just a label.
+2. **Query rewriting** turns the shorthand into precise contract language (*"…limits a party's maximum aggregate liability…"*) and surfaces the interpretation, so you can trust what was searched.
+3. **A grounded draft** — reusable clause language pulled from, and cited to, the real corpus, ready to paste into an order form. If the corpus can't support the request, it declines rather than fabricating a clause.
+
+The three skills (draft language · find contracts with a clause · ask about one contract) are also selectable directly — the router just picks for you by default.
+
+> *Bring-your-own-key: the hosted demo bakes in no API keys — paste your own Anthropic + Cohere keys into the sidebar (browser-session only, never logged, never committed). Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.*
 
 ---
 
-## Engineering highlights
+## What this demonstrates
 
-For anyone skimming — this is a small system built the way I'd build a real one:
+A small system, built the way I'd build a real one — the things a reviewer usually has to take on faith are all here in the repo:
+
+- **Quality is gated, not asserted** — a GitHub Actions **faithfulness gate** runs an LLM-as-judge eval on every PR and fails the build if grounding drops below threshold.
+- **Observable end-to-end** — per-request tracing (Langfuse) plus an SRE-style metrics sink (p50/p95 latency, citation coverage, failure/decline rate) that a second CI gate reads.
+- **Typed and linted** — `mypy` + `ruff` in CI; prompts live in **versioned config**, not scattered string literals, so a prompt change is a reviewable diff.
+- **Provenance as a first-class concern** — zero proprietary data; the corpus and eval set are built from public **CUAD** (CC BY 4.0), and the licensing is documented, not hand-waved.
+- **Honest failure modes** — the system declines rather than guessing, and declines are excluded from faithfulness (grading a non-answer is meaningless).
+- **Cost-conscious** — the per-query rewrite step runs on a free-tier model, keeping it off the main model's bill.
+
+Tested throughout — retrieval, fusion, the LLM-judge logic, and the router each have unit tests.
 
 - **Quality is gated, not asserted** — a GitHub Actions **faithfulness gate** runs an LLM-as-judge eval on every PR and fails the build if grounding drops below threshold.
 - **Observable end-to-end** — per-request tracing (Langfuse) plus an SRE-style metrics sink (p50/p95 latency, citation coverage, failure/decline rate) that a second CI gate reads.
