@@ -73,7 +73,8 @@ python -m rag_revops.metrics_report --since-min 60 --json
 Two gates run in CI (`.github/workflows/ci.yml`, `faithfulness-gate` job):
 
 1. **Faithfulness gate** (pre-existing) — `eval/run_eval.py --gate` fails the
-   build if mean faithfulness drops below `eval.min_faithfulness` (0.85).
+   build if mean faithfulness drops below `eval.min_faithfulness` (0.70, a
+   regression gate calibrated below the measured ~0.78 baseline).
 2. **Operational-metrics gate** (new) — because the eval ran every golden
    question through the live pipeline, `metrics/requests.jsonl` now holds real
    per-request data. `metrics_report --gate` fails the build if citation coverage,

@@ -70,7 +70,11 @@ if _tracing_requested():
         _langfuse = Langfuse(
             public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
             secret_key=os.environ["LANGFUSE_SECRET_KEY"],
-            host=os.environ.get("LANGFUSE_HOST", _DEFAULT_LANGFUSE_HOST),
+            # `or` (not get's default): a present-but-empty LANGFUSE_HOST — e.g. an
+            # unset CI secret injected as "" — must fall back to the default, not
+            # override it with an empty string (which yields a scheme-less URL and
+            # a flood of "No scheme supplied" export errors).
+            host=os.environ.get("LANGFUSE_HOST") or _DEFAULT_LANGFUSE_HOST,
         )
         _observe_impl = _lf_observe
         _ENABLED = True
