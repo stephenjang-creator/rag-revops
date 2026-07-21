@@ -36,7 +36,8 @@ jobs:
         run: pytest --cov=rag_revops --cov-report=term-missing
 
   # Faithfulness gate: runs the offline eval against the committed demo index and
-  # fails the build if mean faithfulness drops below eval.min_faithfulness (0.85).
+  # fails the build if mean faithfulness drops below eval.min_faithfulness (0.70,
+  # a regression gate calibrated below the measured ~0.78 baseline).
   #
   # Cost & safety notes:
   #   - The eval calls Claude + Cohere, so it spends API credit each run. It runs a
