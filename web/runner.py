@@ -11,8 +11,6 @@ or tests) doesn't require a built Chroma index.
 
 from __future__ import annotations
 
-import html
-import re
 import time
 from collections.abc import Callable
 from typing import Any
@@ -31,14 +29,6 @@ _MODE_TO_SKILL = {
     "find": "find_contracts",
     "single": "ask_one_contract",
 }
-
-_MARKERS = re.compile(r"((?:\[\d+(?:\s*,\s*\d+)*\])+)")
-
-
-def _sup_citations(draft: str) -> str:
-    """HTML-escape the draft, then wrap runs of [n] citation markers in <sup>."""
-    escaped = html.escape(draft)
-    return _MARKERS.sub(r"<sup>\1</sup>", escaped)
 
 
 def run_live(question: str, mode: str, doc_id: str | None, emit: Emit) -> None:
@@ -93,10 +83,12 @@ def run_live(question: str, mode: str, doc_id: str | None, emit: Emit) -> None:
 
 
 def _run_draft(q: str, emit: Emit, settings, ms) -> None:
-    from rag_revops.clause_drafting import ClauseDrafter, decline_reason, strip_citations
+    from rag_revops.clause_drafting import ClauseDrafter, decline_reason
     from rag_revops.clause_finder import ClauseFinder
     from rag_revops.embeddings import CohereEmbedder
     from rag_revops.vectorstore import ChromaStore
+
+    from .clause_format import to_html, to_plain
 
     store = ChromaStore(settings.vectorstore)
     embedder = CohereEmbedder(settings.embeddings)
@@ -124,8 +116,8 @@ def _run_draft(q: str, emit: Emit, settings, ms) -> None:
         "draft",
         heading="Suggested clause language",
         subheading="",
-        body_html=_sup_citations(result.draft),
-        body_plain=strip_citations(result.draft),
+        body_html=to_html(result.draft),    # formatted; [n] rendered as <sup>
+        body_plain=to_plain(result.draft),  # clean, order-form-ready copy
         note="",
         disclaimer="Drafted from real contract language and grounded in the sources "
                    "below — adapt before use, not legal advice.",
@@ -177,6 +169,8 @@ def _run_single(q: str, doc_id: str | None, hint: str | None, emit: Emit, settin
     from rag_revops.graph import RagPipeline
     from rag_revops.router import resolve_contract
 
+    from .clause_format import to_html, to_plain
+
     pipeline = RagPipeline(settings)
 
     if not doc_id:
@@ -208,8 +202,8 @@ def _run_single(q: str, doc_id: str | None, hint: str | None, emit: Emit, settin
     emit(E.answer(
         "single",
         heading="Answer",
-        body_html=_sup_citations(result.answer),
-        body_plain=result.answer,
+        body_html=to_html(result.answer),
+        body_plain=to_plain(result.answer),
         doc_id=doc_id,
         citations=citations,
     ))
