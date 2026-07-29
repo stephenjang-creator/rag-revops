@@ -1,9 +1,8 @@
-# Runtime dependencies for the hosted demos. BOTH deploy targets install from
-# this file:
-#   * Streamlit Community Cloud  -> needs `streamlit` + the package.
-#   * Render (native Python)     -> auto-detects this file and runs
-#                                   `pip install -r requirements.txt`, so it
-#                                   needs the web extra (fastapi + uvicorn) too.
+# Runtime dependencies for the hosted demo (Render) and local runs. Render's
+# native Python build auto-detects this file and runs `pip install -r
+# requirements.txt`, so it needs the web extra (fastapi + uvicorn); the Docker
+# build installs the same via pyproject. `streamlit` is here for the optional
+# local `streamlit run app.py` UI (it isn't a package dependency).
 #
 # Installing the package itself with `-e .[web]` is what ties this together: it
 # pulls every runtime dep from pyproject (chromadb, cohere, anthropic, langgraph,
@@ -15,7 +14,7 @@
 # The package + its web service (fastapi, uvicorn) + all runtime deps.
 -e .[web]
 
-# The Streamlit Cloud demo entrypoint (not a package dependency).
+# The optional local Streamlit UI entrypoint (not a package dependency).
 streamlit>=1.38.0
 
 # Orchestration

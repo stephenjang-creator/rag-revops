@@ -108,46 +108,43 @@ LANGFUSE_HOST=https://cloud.langfuse.com   # or self-hosted
 
 Nothing else changes. Remove the keys and the system is inert again.
 
-## Deployment behavior (Streamlit Community Cloud)
+## Deployment behavior (Render)
 
-The two subsystems are controlled independently, which is what makes the deployed
+The two subsystems are controlled independently, which is what makes the hosted
 demo safe:
 
 | Subsystem | Deployed default | How to control |
 |---|---|---|
-| **Langfuse tracing** | **Off** | Only turns on if `LANGFUSE_*` secrets are set in Streamlit. Leave them unset → reviewer queries never reach your Langfuse project. |
-| **Local metrics sink** | **On (silent)** | Collects one JSONL line per request so you get real production traffic. Set `RAG_METRICS_PATH=""` to disable entirely. |
-| **Admin metrics panel** | **Hidden** | Renders only for someone who enters `admin_password` (from `st.secrets`). No password configured → panel is invisible and unannounced. |
+| **Langfuse tracing** | **Off** | Only turns on if `LANGFUSE_*` env vars are set on the Render service. Leave them unset → visitor queries never reach your Langfuse project. |
+| **Local metrics sink** | **On (silent)** | Collects one JSONL line per request so you get real traffic. Set `RAG_METRICS_PATH=""` to disable, or point it at a persistent disk to keep history across restarts. |
+| **Admin metrics endpoint** | **Locked** | `GET /api/metrics` returns the stats only when the request carries an `X-Admin-Token` header matching the `ADMIN_TOKEN` env var. No `ADMIN_TOKEN` set → the endpoint stays locked. |
 
-So on the deployed app: keep `LANGFUSE_*` out of Streamlit secrets (tracing stays
-off), let the sink collect quietly, and set `admin_password` in Streamlit secrets
-so only you can open the live metrics view.
+So on the deployed app: keep `LANGFUSE_*` off the Render env (tracing stays off),
+let the sink collect quietly, and set `ADMIN_TOKEN` so only you can read
+`/api/metrics`.
 
-### Admin panel
+### Admin views
 
-`rag_revops.admin_panel.render_admin_panel()` is called from the app sidebar. It:
+Both read the same local JSONL sink (so they work without Langfuse) and surface
+live p50/p95/p99 latency, citation coverage, failure/decline rates, and
+LLM-calls-per-request:
 
-* reads `st.secrets["admin_password"]`; if absent, renders nothing (metrics still
-  collect);
-* shows a password box under a "🔒 Admin" expander;
-* on the correct password, renders live p50/p95/p99 latency, citation coverage,
-  failure/decline rates, and LLM-calls-per-request from the same sink the CLI
-  reads — with an optional time window (all-time / last 60 min / last 24 h).
+* **Hosted (Render):** `GET /api/metrics` with an `X-Admin-Token` header. Configure
+  it as a Render environment variable:
 
-Configure it in Streamlit Cloud → Settings → Secrets:
+  ```
+  ADMIN_TOKEN=something-only-you-know
+  ```
 
-```toml
-admin_password = "something-only-you-know"
-```
+* **Local (Streamlit):** `rag_revops.admin_panel.render_admin_panel()` renders the
+  same stats behind a password box in the `app.py` sidebar — it reads
+  `st.secrets["admin_password"]` (put it in `.streamlit/secrets.toml`, gitignored)
+  and renders nothing if no password is configured.
 
-Locally, put the same line in `.streamlit/secrets.toml` (gitignored). The metrics
-sink and the admin panel both work without Langfuse, since they read the local
-JSONL — so the deployed app has a live operational view even with tracing off.
-
-Note: Streamlit Cloud's filesystem is ephemeral, so the deployed sink reflects
-traffic since the last app restart — a live-session view, not long-term history.
-For durable history, enable Langfuse (which persists server-side) or point
-`RAG_METRICS_PATH` at persistent storage.
+Note: the demo image bakes the index in, but the container filesystem is
+ephemeral, so the sink reflects traffic since the last restart — a live-session
+view, not long-term history. For durable history, enable Langfuse (persists
+server-side) or point `RAG_METRICS_PATH` at a persistent disk.
 
 ## Files
 

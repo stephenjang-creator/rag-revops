@@ -1,9 +1,9 @@
-"""Assemble a small, curated demo subset for the hosted Streamlit demo.
+"""Assemble a small, curated demo subset for the hosted demo.
 
 The full corpus is too large (and partly not redistributable) to commit. For the
 live demo we want a *small, self-contained, public* slice whose prebuilt Chroma
-index can be committed to the repo so Streamlit Cloud (ephemeral filesystem) has
-data on cold start.
+index can be committed to the repo so the hosted app (baked into the Render/Docker
+image; ephemeral filesystem) has data on cold start.
 
 This script copies a capped number of CUAD plain-text contracts (CC BY 4.0) plus
 any downloaded public agreements into data/raw/demo_subset/. You then run:
