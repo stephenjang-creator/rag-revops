@@ -174,7 +174,6 @@ em { font-style: italic; }
 
 /* — responsive: desktop-first at 1000px — */
 @media (max-width: 760px) {
-  .dd-hero h1 { font-size: 42px !important; }
   .dd-sections { gap: 72px !important; }
   .dd-grid-3, .dd-grid-2, .dd-hero-figs, .dd-reason-2col, .dd-proof { grid-template-columns: 1fr !important; }
   .dd-proof { gap: 40px !important; }

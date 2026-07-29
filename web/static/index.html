@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="dd-shell" style="padding: 0 32px 140px;">
+<div class="dd-shell" style="padding: 0 clamp(20px, 5vw, 88px) 140px;">
 
   <!-- Nav -->
   <div style="max-width: 1000px; margin: 0 auto; display: flex; align-items: center; gap: 32px; padding: 34px 0 10px;">
@@ -26,11 +26,11 @@
 
     <!-- Hero -->
     <section class="dd-hero" style="padding-top: 84px; display: grid; gap: 40px;">
-      <div style="display: grid; gap: 26px; max-width: 21em;">
+      <div style="display: grid; gap: 26px; max-width: min(820px, 100%);">
         <span class="eyebrow">Contract analysis · Python</span>
-        <h1 style="font-size: 66px; font-weight: 300;">Answers about your contracts, with the receipts attached.</h1>
+        <h1 style="font-size: clamp(40px, 6vw, 66px); font-weight: 300;">Answers about your contracts, with the receipts attached.</h1>
       </div>
-      <p style="font-size: 20px; line-height: 1.58; max-width: 27em; color: var(--ink-soft);">Deal desks get asked the same two questions all day: <em>what does this contract say about X?</em> and <em>which of our contracts have X?</em> This tool answers both in plain English, shows the passages it used, and says "I don't know" instead of making something up.</p>
+      <p style="font-size: 20px; line-height: 1.58; max-width: 32em; color: var(--ink-soft);">Deal desks get asked the same two questions all day: <em>what does this contract say about X?</em> and <em>which of our contracts have X?</em> This tool answers both in plain English, shows the passages it used, and says "I don't know" instead of making something up.</p>
       <div style="display: flex; gap: 14px; padding-top: 6px; flex-wrap: wrap;">
         <a class="sbtn sbtn-primary" href="#tool">Watch it work</a>
         <a class="sbtn sbtn-quiet" href="https://github.com/stephenjang-creator/rag-revops">Read the code</a>
