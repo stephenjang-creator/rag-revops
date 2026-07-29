@@ -16,17 +16,17 @@
 
 ## See it work — one box, ask anything
 
-![Auto mode routing a plain-English request to the clause-drafting skill: the routed skill and its rationale, the interpreted query, and grounded suggested clause language](docs/screenshot-auto-mode.png)
+![Auto mode routing the plain-English question "which contracts have TFCs" to the cross-corpus find skill: the routing decision, the shorthand expanded into contract language, and an LLM judge returning 9 of 100 contracts that qualify — each with the passage and the reason it matched on meaning](docs/screenshot-auto-mode.png)
 
-There's no mode to pick. You type a request in plain English and the system works out what you actually want:
+There's no mode to pick. You type a request in plain English and the system works out what you actually want. Here it takes the shorthand *"which contracts have TFCs"*:
 
-1. **A router** reads *"give me some wording to cap liability"* and routes it to the **Draft clause language** skill — and shows *why* it chose that, not just a label.
-2. **Query rewriting** turns the shorthand into precise contract language (*"…limits a party's maximum aggregate liability…"*) and surfaces the interpretation, so you can trust what was searched.
-3. **A grounded draft** — reusable clause language pulled from, and cited to, the real corpus, ready to paste into an order form. If the corpus can't support the request, it declines rather than fabricating a clause.
+1. **A router** reads the question and sends it to the **Find contracts with clauses** skill — a cross-corpus search over the whole book — and shows *why*, not just a label.
+2. **Query rewriting** expands the shorthand into precise contract language (*"contracts with provisions for termination at the convenience of either party"*) and surfaces the interpretation, so you can trust what was searched.
+3. **An LLM judge reads every contract for meaning, not keywords** — returning *9 of 100* that qualify, each with the exact passage and why it matched. It catches agreements that never say "termination for convenience" (e.g. *"terminate … for any or for no reason,"* *"15 days' written notice"*) — the ones a keyword or even a reranker search misses.
 
 The three skills (draft language · find contracts with a clause · ask about one contract) are also selectable directly — the router just picks for you by default.
 
-> *Bring-your-own-key: the hosted demo bakes in no API keys — paste your own Anthropic + Cohere keys into the sidebar (browser-session only, never logged, never committed). Reviewers without keys still see the full UI, the corpus, and the retrieval/citation behavior.*
+> *Bring-your-own-key: the hosted demo bakes in no API keys — paste your own Anthropic + Cohere keys into the key panel (browser-session only, never logged, never committed) and the question box goes live. Reviewers without keys still see the full UI, the recorded runs, the corpus, and the retrieval/citation behavior.*
 
 ---
 
