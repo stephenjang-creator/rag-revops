@@ -110,7 +110,7 @@ The two retrieval skills are mirror images of each other, and that contrast is t
 | Generation + judge | **Anthropic (Claude)** | Strong instruction-following for grounding; legal-equivalence reasoning the reranker lacks |
 | Query rewrite | **Cohere `command`** (free tier) | A tiny per-query call; kept off the main model's bill |
 | Evaluation | **Custom LLM-as-judge + set-based P/R/F1** | Transparent, no heavy framework dependency |
-| UI | **Streamlit** | Python-native, bring-your-own-key hosted demo |
+| UI | **FastAPI + static page, deployed on Render** | BYO-key hosted demo that streams the pipeline over SSE; an optional Streamlit app (`app.py`) runs the same skills locally |
 
 Prompts live in a **versioned config file** (`config/settings.yaml`), not scattered string literals — changing a prompt is a reviewable diff.
 
@@ -189,9 +189,17 @@ python -m rag_revops.ingest --source data/raw/contracts
 python -m rag_revops.query "How is liability capped?"
 python -m rag_revops.query_analytical "Which contracts allow termination for convenience?"
 
-# Or the full UI (all modes)
+# The web UI — the same app that deploys to Render (FastAPI + SSE), at http://localhost:8000
+pip install -e ".[web]"
+python -m uvicorn web.server:app --reload
+
+# ...or the zero-setup Streamlit app, same three skills
 streamlit run app.py
 ```
+
+## Deploy
+
+The hosted demo runs on **Render** as the `web/` service. A `Dockerfile` bakes the committed index into the image (no re-ingest on cold start) and `render.yaml` describes the service; native Python works too via `requirements.txt`. Either way the start command is `uvicorn web.server:app`. It's **bring-your-own-key** — no API keys live in the image or environment; visitors paste their own for a request, and keyless visitors still get the recorded runs.
 
 ## Evaluation & tests
 
@@ -218,7 +226,9 @@ eval/
   build_golden.py run_eval.py judge.py                      # faithfulness eval
   build_analytical_golden.py run_analytical_eval.py         # set-based eval
 config/settings.yaml                                        # versioned prompts + tunables
-app.py                                                       # Streamlit UI (all modes)
+web/                                                        # FastAPI + static UI (deploys to Render)
+app.py                                                      # optional local Streamlit UI (same skills)
+Dockerfile  render.yaml                                     # Render deployment (BYO-key)
 .github/workflows/ci.yml                                    # tests + faithfulness/ops gates
 ```
 

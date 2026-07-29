@@ -1,9 +1,9 @@
-"""Deal Desk Helper — Streamlit demo (bring-your-own-key), three modes.
+"""Deal Desk Helper — local Streamlit UI (bring-your-own-key), three modes.
 
-A public, live demo of the contract-analysis pipeline. It bakes in NO API keys:
-the visitor pastes their own Anthropic + Cohere keys into the sidebar. Keys live
-only in Streamlit session state for the browser session — never written to disk,
-never logged, never committed.
+A bring-your-own-key UI over the contract-analysis pipeline. It bakes in NO API
+keys: you paste your own Anthropic + Cohere keys into the sidebar. Keys live only
+in Streamlit session state for the browser session — never written to disk, never
+logged, never committed.
 
 Modes:
   • Ask anything (auto)    — an LLM router reads the question and dispatches to one
@@ -20,7 +20,8 @@ Modes:
   • Ask about a contract   — pick one contract, then get a grounded answer with
                              inline citations, or an explicit decline.
 
-Deployed on Streamlit Community Cloud from this repo; it reruns on every push.
+Run it locally with `streamlit run app.py`. The hosted demo is the FastAPI `web/`
+service deployed on Render; this Streamlit app is the zero-setup local alternative.
 """
 
 from __future__ import annotations
@@ -29,8 +30,8 @@ import os
 import sys
 from pathlib import Path
 
-# Streamlit Cloud installs runtime deps from requirements.txt but does not run an
-# editable install of this package, so make the src/ layout importable directly.
+# `streamlit run` doesn't do an editable install of this package, so make the
+# src/ layout importable directly.
 _SRC = Path(__file__).resolve().parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
@@ -41,7 +42,7 @@ import streamlit as st
 # anything that reads it. observability.py decides whether Langfuse is on at import
 # time from os.environ, so these must be set first. All are optional: absent secrets
 # leave the defaults (tracing off, metrics sink on). This is the seam that lets you
-# turn tracing on for a deployment via Streamlit's Secrets UI without code changes.
+# turn tracing on locally via Streamlit secrets without code changes.
 for _key in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST",
              "RAG_METRICS_PATH", "RAG_CONFIG_VERSION"):
     try:

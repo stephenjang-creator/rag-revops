@@ -9,10 +9,12 @@ Wiring (in app.py sidebar)::
     from rag_revops.admin_panel import render_admin_panel
     render_admin_panel()
 
-Configure the password in Streamlit Cloud → Settings → Secrets (or a local
-.streamlit/secrets.toml)::
+Configure the password in `.streamlit/secrets.toml` (gitignored)::
 
     admin_password = "something-only-you-know"
+
+(This is the local Streamlit admin view; the hosted Render app instead exposes
+`GET /api/metrics`, gated by the ``ADMIN_TOKEN`` env var.)
 
 Design notes
 ------------
