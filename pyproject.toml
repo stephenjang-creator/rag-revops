@@ -96,7 +96,14 @@ rag-query = "rag_revops.query:app"
 rag-metrics = "rag_revops.metrics_report:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+# rag_revops lives under src/; the web service package lives at the repo root.
+# Installing `web` too means `pip install -e ".[web]"` makes `web.server`
+# importable anywhere (uvicorn on Render, etc.) without depending on cwd/PYTHONPATH.
+where = ["src", "."]
+include = ["rag_revops*", "web*"]
+
+[tool.setuptools.package-data]
+web = ["static/*"]
 
 [tool.ruff]
 line-length = 100
