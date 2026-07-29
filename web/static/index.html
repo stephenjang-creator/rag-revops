@@ -53,9 +53,9 @@
 
     <!-- What you can ask it -->
     <section style="display: grid; gap: 52px;">
-      <div style="display: grid; gap: 18px; max-width: 30em;">
+      <div style="display: grid; gap: 18px; max-width: min(680px, 100%);">
         <span class="eyebrow">What you can ask it</span>
-        <h2 style="font-size: 42px;">One box. It works out what you meant.</h2>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">One box. It works out what you meant.</h2>
         <p style="color: var(--ink-soft); max-width: 26em;">There's no mode to pick. Type the request the way you'd say it to a colleague, and it tells you which kind of question it decided you were asking.</p>
       </div>
       <div class="dd-grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
@@ -79,9 +79,9 @@
 
     <!-- The tool -->
     <section id="tool" style="display: grid; gap: 44px; scroll-margin-top: 40px;">
-      <div style="display: grid; gap: 18px; max-width: 32em;">
+      <div style="display: grid; gap: 18px; max-width: min(680px, 100%);">
         <span class="eyebrow">The tool</span>
-        <h2 style="font-size: 42px;">Try a recorded run</h2>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">Try a recorded run</h2>
         <p style="color: var(--ink-soft); max-width: 30em;">Pick a question and the demo walks through a real session — what it decided you were asking, how it translated your wording, and what it came back with. No keys, no setup. <span style="color: var(--ink-faint);">Bring your own Anthropic + Cohere keys to run your own question.</span></p>
       </div>
 
@@ -114,9 +114,9 @@
 
     <!-- How it works -->
     <section id="how" style="display: grid; gap: 52px; scroll-margin-top: 40px;">
-      <div style="display: grid; gap: 22px; max-width: 33em;">
+      <div style="display: grid; gap: 22px; max-width: min(760px, 100%);">
         <span class="eyebrow">How it works</span>
-        <h2 style="font-size: 42px;">The hard part isn't search. It's that contracts never use your words.</h2>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">The hard part isn't search. It's that contracts never use your words.</h2>
         <p style="color: var(--ink-soft); max-width: 30em;">Ask for "termination for convenience" and the clause you need reads "either party may terminate without cause upon thirty days' notice." Searching for the phrase misses it. So does similarity search. So, it turns out, does the standard tool for ranking results — it compares wording, not meaning.</p>
         <p style="color: var(--ink-soft); max-width: 30em;">So the decision moved. Ranking still chooses what order to read the contracts in, but a model that knows "without cause" <em>is</em> convenience decides whether each one qualifies. That one change took a termination question from four matches to sixteen.</p>
       </div>
@@ -146,9 +146,9 @@
 
     <!-- Proof -->
     <section id="proof" style="display: grid; gap: 52px; scroll-margin-top: 40px;">
-      <div style="display: grid; gap: 22px; max-width: 30em;">
+      <div style="display: grid; gap: 22px; max-width: min(680px, 100%);">
         <span class="eyebrow">Proof</span>
-        <h2 style="font-size: 42px;">Quality is measured, not claimed.</h2>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">Quality is measured, not claimed.</h2>
         <p style="color: var(--ink-soft); max-width: 28em;">Every change to the system is graded automatically against a set of contracts with known answers. If grounding slips or answers get slow, the change doesn't ship.</p>
       </div>
       <div class="dd-proof" style="display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start;">
@@ -189,7 +189,7 @@
 
     <!-- Closing CTA -->
     <section style="display: grid; gap: 22px; padding-top: 56px; border-top: 1px solid var(--line);">
-      <h2 style="font-size: 38px; max-width: 20em;">Want to poke at it yourself?</h2>
+      <h2 style="font-size: clamp(28px, 3.6vw, 38px); max-width: min(620px, 100%);">Want to poke at it yourself?</h2>
       <p style="color: var(--ink-soft); max-width: 32em;">Pick a question above and watch a real session replay, or bring your own API keys and ask anything — nothing is stored or logged. The repo has the pipeline, the grading, and an honest account of the three things that were broken before it worked.</p>
       <div style="display: flex; gap: 14px; padding-top: 10px; flex-wrap: wrap;">
         <a class="sbtn sbtn-primary" href="#tool">Try the demo</a>
