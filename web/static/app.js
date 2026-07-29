@@ -14,7 +14,8 @@
   "use strict";
 
   var PACE = 1050; // ms between trace (stage) rows
-  var PLACEHOLDER = "Pick one of the questions above…";
+  var PICK_PLACEHOLDER = "Pick one of the questions above…";
+  var EDIT_PLACEHOLDER = "Type your own question…";
 
   var runsById = {};
   var state = {
@@ -28,6 +29,11 @@
   var $run = document.getElementById("dd-run");
   var $akey = document.getElementById("dd-akey");
   var $ckey = document.getElementById("dd-ckey");
+  var $keysToggle = document.getElementById("dd-keys-toggle");
+  var $keyFields = document.getElementById("dd-key-fields");
+  var $keyAck = document.getElementById("dd-key-ack");
+  var $keyChange = document.getElementById("dd-key-change");
+  var $keyClear = document.getElementById("dd-key-clear");
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -36,8 +42,22 @@
   }
   function hasKeys() { return $akey.value.trim() && $ckey.value.trim(); }
   function currentQuestion() {
-    var t = ($question.textContent || "").trim();
-    return t === PLACEHOLDER ? "" : t;
+    if ($question.classList.contains("placeholder")) return "";
+    return ($question.textContent || "").trim();
+  }
+  function setPlaceholder(text) {
+    $question.classList.add("placeholder");
+    $question.textContent = text;
+  }
+
+  // ---- BYO-key panel state machine ------------------------------------------
+  // collapsed (a quiet link) -> fields (the two inputs) -> ack (a compact
+  // confirmation once both keys are set). Once acknowledged the fields are
+  // hidden; "Change" reopens them and "Clear" wipes both and collapses.
+  function setKeyState(s) {
+    $keysToggle.hidden = s !== "collapsed";
+    $keyFields.hidden = s !== "fields";
+    $keyAck.hidden = s !== "ack";
   }
 
   // ---- humanizers (the v2 copy rule) ----------------------------------------
@@ -338,7 +358,16 @@
   function refreshEditable() {
     var on = !!hasKeys();
     $question.setAttribute("contenteditable", on ? "true" : "false");
+    // Swap the placeholder copy to match what's possible right now.
+    if ($question.classList.contains("placeholder")) {
+      setPlaceholder(on ? EDIT_PLACEHOLDER : PICK_PLACEHOLDER);
+    }
     $ask.disabled = !(state.runId || (on && currentQuestion()));
+  }
+
+  function onKeyInput() {
+    refreshEditable();
+    if (!$keyFields.hidden && hasKeys()) setKeyState("ack"); // both entered → collapse
   }
 
   function init(runs) {
@@ -354,10 +383,30 @@
       $picker.appendChild(b);
     });
     $ask.addEventListener("click", onAsk);
-    [$akey, $ckey].forEach(function (i) { i.addEventListener("input", refreshEditable); });
+
+    // BYO-key panel wiring.
+    $keysToggle.addEventListener("click", function () { setKeyState("fields"); $akey.focus(); });
+    $keyChange.addEventListener("click", function () { setKeyState("fields"); $akey.focus(); });
+    $keyClear.addEventListener("click", function () {
+      $akey.value = ""; $ckey.value = "";
+      refreshEditable();
+      setKeyState("collapsed");
+    });
+    [$akey, $ckey].forEach(function (i) { i.addEventListener("input", onKeyInput); });
+    setKeyState(hasKeys() ? "ack" : "collapsed"); // in case the browser autofilled
+
     $question.addEventListener("input", refreshEditable);
     $question.addEventListener("focus", function () {
-      if (currentQuestion() === "" && hasKeys()) { $question.classList.remove("placeholder"); $question.textContent = ""; }
+      if (hasKeys() && $question.classList.contains("placeholder")) {
+        $question.classList.remove("placeholder");
+        $question.textContent = "";
+      }
+    });
+    $question.addEventListener("blur", function () {
+      if (hasKeys() && ($question.textContent || "").trim() === "") {
+        setPlaceholder(EDIT_PLACEHOLDER);
+        refreshEditable();
+      }
     });
   }
 

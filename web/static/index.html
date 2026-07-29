@@ -96,17 +96,24 @@
           <button class="sbtn sbtn-primary" id="dd-ask" style="min-width: 132px;" disabled>Ask</button>
         </div>
 
-        <!-- BYO-key: unlocks a free-text question and streams a real run -->
-        <details id="dd-keys">
-          <summary style="cursor: pointer; font-size: 14px; color: var(--ink-faint); list-style: none;">Use your own API keys to ask anything →</summary>
-          <div class="dd-keybody" style="display: grid; gap: 14px; margin-top: 18px; max-width: 46em;">
-            <p style="margin: 0; font-size: 14px; color: var(--ink-soft);">Keys are sent only with your request, held for that request, never logged or stored. Free-tier keys work. With both set, the question box becomes editable and your run streams live.</p>
+        <!-- BYO-key: reveal the fields, then acknowledge + collapse once both are set -->
+        <div id="dd-keys" style="display: grid; gap: 14px; justify-items: start;">
+          <button type="button" id="dd-keys-toggle" class="dd-keys-link">Use your own API keys to ask anything →</button>
+
+          <div id="dd-key-fields" hidden style="display: grid; gap: 14px; max-width: 46em; width: 100%;">
+            <p style="margin: 0; font-size: 14px; color: var(--ink-soft);">Keys are sent only with your request, held for that request, never logged or stored. Free-tier keys work. With both set, the question box goes live and your run streams.</p>
             <div class="dd-keyrow" style="display: flex; gap: 14px; flex-wrap: wrap;">
               <input class="kinput" id="dd-akey" type="password" placeholder="Anthropic API key" autocomplete="off">
               <input class="kinput" id="dd-ckey" type="password" placeholder="Cohere API key" autocomplete="off">
             </div>
           </div>
-        </details>
+
+          <div id="dd-key-ack" hidden style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <span class="dd-ack">Keys added — ask your own question above</span>
+            <button type="button" id="dd-key-change" class="dd-keys-link">Change</button>
+            <button type="button" id="dd-key-clear" class="dd-keys-link">Clear</button>
+          </div>
+        </div>
 
         <div id="dd-run"></div>
       </div>
