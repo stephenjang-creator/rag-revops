@@ -87,13 +87,16 @@
 
       <div style="background: var(--surface); border-radius: 26px; padding: 44px; display: grid; gap: 32px;">
         <div style="display: grid; gap: 16px;">
-          <span class="label">Pick a question</span>
+          <span class="label" id="dd-picker-label">Pick a question</span>
           <div id="dd-picker" class="dd-grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;"></div>
         </div>
 
-        <div style="display: flex; gap: 14px; align-items: stretch;">
-          <div class="qfield placeholder" id="dd-question">Pick one of the questions above…</div>
-          <button class="sbtn sbtn-primary" id="dd-ask" style="min-width: 132px;" disabled>Ask</button>
+        <div style="display: grid; gap: 10px;">
+          <span class="label label-accent" id="dd-q-label" hidden>Ask your own question</span>
+          <div style="display: flex; gap: 14px; align-items: stretch;">
+            <div class="qfield placeholder" id="dd-question">Pick one of the questions above…</div>
+            <button class="sbtn sbtn-primary" id="dd-ask" style="min-width: 132px;" disabled>Ask</button>
+          </div>
         </div>
 
         <!-- BYO-key: reveal the fields, then acknowledge + collapse once both are set -->
@@ -109,7 +112,7 @@
           </div>
 
           <div id="dd-key-ack" hidden style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-            <span class="dd-ack">Keys added — ask your own question above</span>
+            <span class="dd-ack">API keys added — free-tier keys work</span>
             <button type="button" id="dd-key-change" class="dd-keys-link">Change</button>
             <button type="button" id="dd-key-clear" class="dd-keys-link">Clear</button>
           </div>
