@@ -1,18 +1,26 @@
-/* Deal Desk Helper — demo replay + live SSE, one renderer for both.
+/* Deal Desk Helper — demo replay + live SSE, one renderer for both (v2).
  *
  * The recorded runs come from /api/demo; a live run streams from POST /api/ask.
- * Both are the same event schema, so handleEvent() renders either source. The
- * only difference is transport: the demo is replayed on a timer, the live path
- * is read frame-by-frame off the SSE body.
+ * Both speak the same event schema, so handleEvent() renders either source —
+ * the only difference is transport (the demo replays on a timer, the live path
+ * reads frames off the SSE body).
+ *
+ * v2 copy rule: no scores, no chunk ids, no millisecond timings, no raw CUAD
+ * filenames. The API still returns the raw values; we humanize them here —
+ * prettyDoc() turns "041__NICELTD_2003-EX-4.5-OUTSOURCING_AGREEMENT" into
+ * "Niceltd — Outsourcing Agreement", and stripMarkers() drops inline [n] tags.
  */
 (function () {
   "use strict";
 
-  var PACE = 750; // ms between trace (stage) rows
+  var PACE = 1050; // ms between trace (stage) rows
   var PLACEHOLDER = "Pick one of the questions above…";
 
   var runsById = {};
-  var state = { runId: null, running: false, timer: null, abort: null, doneStages: 0 };
+  var state = {
+    runId: null, running: false, timer: null, abort: null,
+    doneStages: 0, route: null, rewrite: null,
+  };
 
   var $question = document.getElementById("dd-question");
   var $ask = document.getElementById("dd-ask");
@@ -32,14 +40,44 @@
     return t === PLACEHOLDER ? "" : t;
   }
 
+  // ---- humanizers (the v2 copy rule) ----------------------------------------
+  function humanize(tok) {
+    return String(tok || "").split(/[_\-]+/).filter(Boolean)
+      .map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); })
+      .join(" ");
+  }
+  function prettyDoc(id) {
+    id = String(id == null ? "" : id).trim();
+    if (!/^\d+__/.test(id)) return id; // already a readable name (demo data)
+    var body = id.replace(/^\d+__/, "");
+    var ym = body.match(/(19|20)\d{2}/);
+    var party, type = "";
+    if (ym) {
+      party = body.slice(0, ym.index);
+      var tail = body.slice(ym.index + ym[0].length).replace(/^[_\-]+/, "");
+      tail = tail.replace(/^EX[-_]?[\d.]+[-_]?/i, "");
+      type = humanize(tail);
+    } else {
+      party = body;
+    }
+    party = party.replace(/[_\-]+$/, "").replace(/(?:[_\-]\d{1,2}){1,2}$/, "");
+    var name = humanize(party);
+    return type ? name + " — " + type : name;
+  }
+  function stripMarkers(s) {
+    return String(s == null ? "" : s).replace(/\s*(?:\[\d+(?:\s*,\s*\d+)*\])+/g, "");
+  }
+
   // ---- layout: build the run scaffold once per run --------------------------
   function newRunDom() {
+    state.doneStages = 0;
+    state.route = null;
+    state.rewrite = null;
     $run.innerHTML =
-      '<div style="display:grid; gap:var(--space-6);">' +
-      '  <div id="dd-trace" style="display:grid; gap:var(--space-2); border-left:1px solid var(--color-divider); padding-left:var(--space-6);"></div>' +
+      '<div style="display:grid; gap:32px;">' +
+      '  <div id="dd-trace" style="display:grid; gap:14px;"></div>' +
       '  <div id="dd-spinner"></div>' +
-      '  <div id="dd-route"></div>' +
-      '  <div id="dd-rewrite"></div>' +
+      '  <div id="dd-reason"></div>' +
       '  <div id="dd-result"></div>' +
       "</div>";
   }
@@ -48,87 +86,115 @@
     var slot = document.getElementById("dd-spinner");
     if (!slot) return;
     slot.innerHTML = on
-      ? '<div style="display:flex; align-items:center; gap:var(--space-3); font-size:14px; color:var(--color-neutral-700);">' +
-        '<span style="width:13px;height:13px;border:1.5px solid var(--color-accent-300);border-top-color:var(--color-accent);border-radius:50%;animation:ddSpin .8s linear infinite;"></span>' +
-        "<span>" + esc(label) + "</span></div>"
+      ? '<div style="display:flex; align-items:center; gap:12px; font-size:15.5px; color:var(--ink-faint);">' +
+        '<span class="spinner"></span><span>' + esc(label) + "</span></div>"
       : "";
   }
 
   // ---- per-event renderers --------------------------------------------------
   function renderStage(d) {
     if (d.state === "running") {
-      setSpinner(true, state.doneStages >= 3 ? "Grounding the answer…" : "Working through the pipeline…");
+      setSpinner(true, state.doneStages >= 4 ? "Putting the answer together…" : "Working through it…");
       return;
     }
     state.doneStages += 1;
     var trace = document.getElementById("dd-trace");
     if (!trace) return;
     var row = document.createElement("div");
-    row.className = "ddrow dd-trace-row";
-    row.style.cssText = "display:grid; grid-template-columns:150px 1fr auto; gap:var(--space-4); align-items:baseline; padding:var(--space-2) 0;";
+    row.className = "sfin dd-trace-row";
+    row.style.cssText = "display:grid; grid-template-columns:132px 1fr; gap:24px; align-items:baseline;";
     row.innerHTML =
-      '<span style="font-family:var(--font-heading); font-size:14px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-accent-700);">' + esc(d.label) + "</span>" +
-      '<span class="dd-detail" style="font-size:14px; color:var(--color-neutral-800);">' + esc(d.detail) + "</span>" +
-      '<span class="text-muted" style="font-size:11px; font-family:ui-monospace, monospace;">' + esc(d.ms) + "</span>";
+      '<span class="label label-accent">' + esc(d.label) + "</span>" +
+      '<span style="font-size:16px; color:var(--ink-soft);">' + esc(d.detail) + "</span>";
     trace.appendChild(row);
   }
 
-  function renderRoute(d) {
-    var slot = document.getElementById("dd-route");
+  // The reasoning card merges the router decision and the query rewrite — they
+  // arrive as two events (in either order across demo/live), one card.
+  function renderReason() {
+    var slot = document.getElementById("dd-reason");
     if (!slot) return;
-    slot.innerHTML =
-      '<div class="ddrow" style="display:grid; gap:var(--space-1); padding:var(--space-4) var(--space-6); border-left:2px solid var(--color-accent);">' +
-      '<span style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-accent-700);">Why it picked this skill</span>' +
-      '<span style="font-size:15px; color:var(--color-neutral-900);">' + esc(d.reason) + "</span></div>";
+    var r = state.route, rw = state.rewrite;
+    if (!r && !rw) return;
+    var typed = (rw && rw.original) || currentQuestion() || (state.runId && runsById[state.runId] && runsById[state.runId].question) || "";
+    var html = '<div class="sfin raised-card" style="display:grid; gap:22px;">';
+    if (r && r.reason) {
+      html +=
+        '<div style="display:grid; gap:6px;">' +
+        '<span class="label">What it decided you were asking</span>' +
+        '<span style="font-size:17px; color:var(--ink);">' + esc(r.reason) + "</span></div>";
+    }
+    if (rw && rw.rewritten) {
+      html += '<div style="height:1px; background:var(--line);"></div>';
+      html +=
+        '<div class="dd-reason-2col" style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">' +
+        '<div style="display:grid; gap:6px;"><span class="label">You typed</span>' +
+        '<span style="font-size:16px; color:var(--ink-soft);">' + esc(typed) + "</span></div>" +
+        '<div style="display:grid; gap:6px;"><span class="label label-accent">Looked for</span>' +
+        '<span style="font-size:16px; color:var(--ink);">' + esc(rw.rewritten) + "</span></div></div>";
+    }
+    html += "</div>";
+    slot.innerHTML = html;
   }
 
-  function renderRewrite(d) {
-    var slot = document.getElementById("dd-rewrite");
-    if (!slot || !d.changed) return;
-    slot.innerHTML =
-      '<div class="ddrow dd-rewrite" style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-6); padding:var(--space-4) var(--space-6); background:var(--color-accent-100);">' +
-      '<div style="display:grid; gap:var(--space-1);"><span class="text-muted" style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase;">You typed</span>' +
-      '<span style="font-size:14px;">' + esc(d.original) + "</span></div>" +
-      '<div style="display:grid; gap:var(--space-1);"><span style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-accent-700);">Searched as</span>' +
-      '<span style="font-size:14px; color:var(--color-accent-900);">' + esc(d.rewritten) + "</span></div></div>";
+  function renderRoute(d) { state.route = d; renderReason(); }
+  function renderRewrite(d) { state.rewrite = d; renderReason(); }
+
+  function sourceLines(items, getName) {
+    // Unique, readable "Drawn from" names — no scores, one per line.
+    var seen = {}, out = "";
+    (items || []).forEach(function (it) {
+      var name = prettyDoc(getName(it));
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      out += '<span style="font-size:16px; color:var(--ink-soft);">' + esc(name) + "</span>";
+    });
+    return out;
   }
 
   function renderAnswer(d) {
     var slot = document.getElementById("dd-result");
     if (!slot) return;
     if (d.kind === "find") return renderFind(slot, d);
-    // draft or single: a heading, optional subheading, cited body, sources.
-    var html = '<div class="ddrow" style="display:grid; gap:var(--space-4);">';
-    html += '<h3 style="font-size:22px; margin:0;">' + esc(d.heading || "Answer") + "</h3>";
-    if (d.subheading) html += '<span style="font-family:var(--font-heading); font-size:16px;">' + esc(d.subheading) + "</span>";
-    html += '<p style="font-size:15px; line-height:1.65; margin:0; color:var(--color-neutral-900);">' + (d.body_html || esc(d.body_plain)) + "</p>";
-    if (d.note) html += '<div style="border-left:2px solid var(--color-accent); padding-left:var(--space-4); font-size:14px; color:var(--color-neutral-800);"><strong>Deal desk note:</strong> ' + esc(d.note) + "</div>";
-    if (d.disclaimer) html += '<p class="text-muted" style="font-size:13px; margin:0;">' + esc(d.disclaimer) + "</p>";
-    var sources = d.sources || (d.citations || []).map(function (c) { return { doc_id: c.doc_id, score: c.score }; });
-    if (sources.length) {
-      html += '<div style="display:grid; gap:var(--space-2); margin-top:var(--space-2);"><span class="text-muted" style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase;">Sources</span>';
-      sources.forEach(function (s) {
-        html += '<div style="display:flex; justify-content:space-between; gap:var(--space-4); padding:var(--space-2) 0; border-bottom:1px solid var(--color-divider); font-size:13px;">' +
-          '<span style="font-family:ui-monospace, monospace;">' + esc(s.doc_id) + "</span>" +
-          '<span class="text-muted" style="font-size:12px;">relevance ' + esc(s.score) + "</span></div>";
-      });
+
+    var body = stripMarkers(d.body_plain != null ? d.body_plain : "");
+    var html = '<div class="sfin" style="display:grid; gap:22px;">';
+    html += '<h3 style="font-size:30px;">' + esc(d.heading || "Answer") + "</h3>";
+
+    html += '<div class="raised-card" style="display:grid; gap:12px; padding:32px 34px;">';
+    if (d.subheading) html += '<span style="font-family:var(--serif); font-size:20px;">' + esc(d.subheading) + "</span>";
+    html += '<p style="font-size:17px; line-height:1.7; color:var(--ink);">' + esc(body) + "</p></div>";
+
+    if (d.note) html += '<p style="font-size:16px; color:var(--ink-soft); max-width:42em;"><span style="color:var(--accent-deep);">A note from the tool —</span> ' + esc(d.note) + "</p>";
+
+    // "Drawn from": draft carries `sources`, single carries `citations`.
+    var src = d.sources || d.citations || [];
+    if (src.length) {
+      html += '<div style="display:grid; gap:12px; padding-top:8px;"><span class="label">Drawn from</span>';
+      html += sourceLines(src, function (s) { return s.doc_id; });
+      if (d.disclaimer) html += '<p style="font-size:14.5px; color:var(--ink-faint); max-width:40em; padding-top:6px;">' + esc(d.disclaimer) + "</p>";
       html += "</div>";
+    } else if (d.disclaimer) {
+      html += '<p style="font-size:14.5px; color:var(--ink-faint); max-width:40em;">' + esc(d.disclaimer) + "</p>";
     }
     html += "</div>";
     slot.innerHTML = html;
   }
 
   function renderFind(slot, d) {
-    var html = '<div class="ddrow" style="display:grid; gap:var(--space-4);">';
-    html += '<h3 style="font-size:22px; margin:0;">' + esc(d.summary) + "</h3>";
+    var html = '<div class="sfin" style="display:grid; gap:22px;">';
+    html += '<h3 style="font-size:30px;">' + esc(d.summary || "Matching contracts") + "</h3>";
+    html += '<div style="display:grid; gap:18px;">';
     (d.findings || []).forEach(function (f) {
-      html += '<div style="display:grid; gap:var(--space-1); padding:var(--space-3) 0; border-bottom:1px solid var(--color-divider);">' +
-        '<div style="display:flex; align-items:center; gap:var(--space-3);">' +
-        '<span style="font-family:ui-monospace, monospace; font-size:13px;">' + esc(f.doc_id || f.doc) + "</span>" +
-        (f.tag ? '<span class="tag tag-accent">' + esc(f.tag) + "</span>" : "") + "</div>" +
-        '<span style="font-size:14px; color:var(--color-neutral-800);">' + esc(f.reason) + "</span></div>";
+      var name = prettyDoc(f.doc_id || f.doc);
+      html += '<div class="raised-card" style="display:grid; gap:8px; padding:24px 28px;">' +
+        '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">' +
+        '<span style="font-family:var(--serif); font-size:20px;">' + esc(name) + "</span>" +
+        (f.tag ? '<span class="chip">' + esc(f.tag) + "</span>" : "") + "</div>" +
+        '<span style="font-size:16px; color:var(--ink-soft);">' + esc(f.reason) + "</span></div>";
     });
-    if (d.footer) html += '<p class="text-muted" style="font-size:13px; margin:0;">' + esc(d.footer) + "</p>";
+    html += "</div>";
+    if (d.footer) html += '<p style="font-size:16px; color:var(--ink-soft); max-width:40em;">' + esc(d.footer) + "</p>";
     html += "</div>";
     slot.innerHTML = html;
   }
@@ -137,16 +203,16 @@
     var slot = document.getElementById("dd-result");
     if (!slot) return;
     slot.innerHTML =
-      '<div class="ddrow" style="display:grid; gap:var(--space-3);">' +
-      '<div style="padding:var(--space-4) var(--space-6); background:var(--color-neutral-200); border-left:2px solid var(--color-neutral-600);">' +
-      '<span style="font-family:var(--font-heading); font-size:18px;">' + esc(d.reason) + "</span></div>" +
-      '<p style="font-size:15px; color:var(--color-neutral-800); margin:0; max-width:46em;">' + esc(d.why) + "</p></div>";
+      '<div class="sfin" style="display:grid; gap:18px;">' +
+      '<div class="raised-card" style="padding:30px 34px;">' +
+      '<span style="font-family:var(--serif); font-size:25px;">' + esc(d.reason) + "</span></div>" +
+      '<p style="font-size:17px; color:var(--ink-soft); max-width:40em;">' + esc(d.why) + "</p></div>";
   }
 
   function renderError(d) {
     if (d.code === "busy" && state.runId) { replay(state.runId); return; } // fall back to the recorded run
     var slot = document.getElementById("dd-result");
-    if (slot) slot.innerHTML = '<div style="padding:var(--space-4) var(--space-6); background:var(--color-neutral-200); border-left:2px solid var(--color-neutral-600); font-size:14px;">' + esc(d.message) + "</div>";
+    if (slot) slot.innerHTML = '<div class="raised-card" style="padding:24px 28px; font-size:16px; color:var(--ink-soft);">' + esc(d.message) + "</div>";
   }
 
   function handleEvent(ev) {
@@ -157,7 +223,7 @@
       case "answer": renderAnswer(ev.data); break;
       case "decline": renderDecline(ev.data); break;
       case "error": renderError(ev.data); break;
-      case "retrieval": case "judge": break; // informational; the stage/answer rows cover these
+      case "retrieval": case "judge": break; // informational; stage/answer rows cover these
       case "done": finish(); break;
     }
   }
@@ -165,7 +231,7 @@
   function finish() {
     state.running = false;
     setSpinner(false, "");
-    $ask.textContent = "Run again";
+    $ask.textContent = "Run it again";
     $ask.disabled = false;
   }
 
@@ -176,10 +242,9 @@
     if (!run) return;
     state.runId = runId;
     state.running = true;
-    state.doneStages = 0;
     newRunDom();
-    setSpinner(true, "Working through the pipeline…");
-    $ask.textContent = "Running…";
+    setSpinner(true, "Working through it…");
+    $ask.textContent = "Working…";
     $ask.disabled = true;
     var evs = run.events, i = 0, first = true;
     function tick() {
@@ -187,8 +252,8 @@
       var ev = evs[i++];
       handleEvent(ev);
       if (i < evs.length) {
-        var delay = ev.type === "stage" ? (first ? PACE * 0.66 : PACE) : 0;
-        first = false;
+        var delay = ev.type === "stage" ? (first ? PACE * 0.7 : PACE) : 0;
+        if (ev.type === "stage") first = false;
         state.timer = setTimeout(tick, delay);
       }
     }
@@ -200,10 +265,9 @@
     stop();
     state.runId = null;
     state.running = true;
-    state.doneStages = 0;
     newRunDom();
-    setSpinner(true, "Working through the pipeline…");
-    $ask.textContent = "Running…";
+    setSpinner(true, "Working through it…");
+    $ask.textContent = "Working…";
     $ask.disabled = true;
     var controller = new AbortController();
     state.abort = controller;
@@ -255,6 +319,7 @@
     var run = runsById[runId];
     if (!run) return;
     state.runId = runId;
+    $question.classList.remove("placeholder");
     $question.textContent = run.question;
     $run.innerHTML = "";
     $ask.textContent = "Ask";
@@ -273,7 +338,6 @@
   function refreshEditable() {
     var on = !!hasKeys();
     $question.setAttribute("contenteditable", on ? "true" : "false");
-    $question.style.caretColor = "var(--color-accent)";
     $ask.disabled = !(state.runId || (on && currentQuestion()));
   }
 
@@ -282,21 +346,23 @@
     $picker.innerHTML = "";
     runs.forEach(function (r) {
       var b = document.createElement("button");
-      b.className = "btn btn-secondary";
-      b.style.textAlign = "left";
+      b.className = "qpick";
       b.textContent = r.question;
       b.dataset.run = r.id;
+      b.setAttribute("aria-current", "false");
       b.addEventListener("click", function () { pick(r.id); });
       $picker.appendChild(b);
     });
     $ask.addEventListener("click", onAsk);
     [$akey, $ckey].forEach(function (i) { i.addEventListener("input", refreshEditable); });
     $question.addEventListener("input", refreshEditable);
-    $question.addEventListener("focus", function () { if (currentQuestion() === "" && hasKeys()) $question.textContent = ""; });
+    $question.addEventListener("focus", function () {
+      if (currentQuestion() === "" && hasKeys()) { $question.classList.remove("placeholder"); $question.textContent = ""; }
+    });
   }
 
   fetch("/api/demo")
     .then(function (r) { return r.json(); })
     .then(function (j) { init(j.runs || []); })
-    .catch(function () { $picker.innerHTML = '<span class="text-muted" style="font-size:13px;">Demo unavailable — the API isn\'t reachable.</span>'; });
+    .catch(function () { $picker.innerHTML = '<span style="font-size:15px; color:var(--ink-faint);">Demo unavailable — the API isn\'t reachable.</span>'; });
 })();
