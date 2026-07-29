@@ -10,7 +10,7 @@
 
 > **AI-first, human-in-the-loop.** Every answer is grounded in retrieved passages and cites its source. When the documents don't support an answer, the system says so instead of inventing one. Built in Python.
 
-**[▶ Try the live demo](https://rag-revops.streamlit.app)** &nbsp;·&nbsp; [What it does](#what-it-does) &nbsp;·&nbsp; [Architecture](#architecture) &nbsp;·&nbsp; [How the hard parts got solved](#the-engineering-story-how-the-hard-parts-got-solved)
+**[▶ Try the live demo](https://rag-revops.onrender.com)** &nbsp;·&nbsp; [What it does](#what-it-does) &nbsp;·&nbsp; [Architecture](#architecture) &nbsp;·&nbsp; [How the hard parts got solved](#the-engineering-story-how-the-hard-parts-got-solved)
 
 ---
 
