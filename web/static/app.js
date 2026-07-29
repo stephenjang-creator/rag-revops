@@ -179,13 +179,18 @@
     if (!slot) return;
     if (d.kind === "find") return renderFind(slot, d);
 
-    var body = stripMarkers(d.body_plain != null ? d.body_plain : "");
+    // Prefer the server-rendered HTML (formatted Markdown); fall back to escaped
+    // plain text with citation markers stripped.
+    var bodyHtml = d.body_html || esc(stripMarkers(d.body_plain != null ? d.body_plain : ""));
     var html = '<div class="sfin" style="display:grid; gap:22px;">';
     html += '<h3 style="font-size:30px;">' + esc(d.heading || "Answer") + "</h3>";
 
-    html += '<div class="raised-card" style="display:grid; gap:12px; padding:32px 34px;">';
-    if (d.subheading) html += '<span style="font-family:var(--serif); font-size:20px;">' + esc(d.subheading) + "</span>";
-    html += '<p style="font-size:17px; line-height:1.7; color:var(--ink);">' + esc(body) + "</p></div>";
+    html += '<div class="raised-card clause-card">';
+    html += '<div class="clause-head">';
+    html += '<span class="clause-sub">' + esc(d.subheading || "") + "</span>";
+    html += '<button type="button" class="dd-copy">Copy clause</button>';
+    html += "</div>";
+    html += '<div class="clause-html">' + bodyHtml + "</div></div>";
 
     if (d.note) html += '<p style="font-size:16px; color:var(--ink-soft); max-width:42em;"><span style="color:var(--accent-deep);">A note from the tool —</span> ' + esc(d.note) + "</p>";
 
@@ -201,6 +206,39 @@
     }
     html += "</div>";
     slot.innerHTML = html;
+
+    // Copy the clean, order-form-ready plain text (no markup, citations, or note).
+    var cbtn = slot.querySelector(".dd-copy");
+    if (cbtn) cbtn.addEventListener("click", function () { copyClause(d.body_plain || "", cbtn); });
+  }
+
+  function copyClause(text, btn) {
+    var restore = function () {
+      btn.textContent = "Copy clause"; btn.disabled = false;
+    };
+    var done = function () {
+      btn.textContent = "Copied ✓"; btn.disabled = true;
+      setTimeout(restore, 1600);
+    };
+    var val = String(text == null ? "" : text);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(val).then(done, function () { legacyCopy(val, done); });
+    } else {
+      legacyCopy(val, done);
+    }
+  }
+
+  function legacyCopy(val, done) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = val;
+      ta.style.position = "fixed"; ta.style.top = "-1000px"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      done();
+    } catch (e) { /* clipboard unavailable — leave the button as-is */ }
   }
 
   function renderFind(slot, d) {

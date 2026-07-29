@@ -53,7 +53,7 @@ def _draft_run() -> dict:
                 "draft",
                 heading="Suggested wording",
                 subheading="Payment Terms",
-                body_html=_DRAFT_CLAUSE,
+                body_html=f"<p>{_DRAFT_CLAUSE}</p>",
                 body_plain=_DRAFT_CLAUSE,
                 note=(
                     "the examples all support 30 days from the invoice date, though "

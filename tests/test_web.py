@@ -13,6 +13,7 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from web.clause_format import to_html, to_plain  # noqa: E402
 from web.contracts import parse_contract  # noqa: E402
 from web.demo_data import demo_runs  # noqa: E402
 from web.server import app  # noqa: E402
@@ -32,6 +33,31 @@ def test_parse_contract_without_year_is_graceful():
     m = parse_contract("SomeParty-MASTER_AGREEMENT")
     assert m.year is None
     assert m.title  # non-empty, doesn't crash
+
+
+# --- clause formatting -------------------------------------------------------
+_MESSY_DRAFT = (
+    "## Limitation of Liability\n\n"
+    "**LIMITATION OF LIABILITY** IN NO EVENT SHALL EITHER PARTY BE LIABLE [1] "
+    "for indirect damages. &nbsp;&nbsp;(i) except indemnity. [2]\n\n"
+    "---\n\n"
+    "> **Deal Desk Note:** review the carve-outs."
+)
+
+
+def test_to_plain_is_order_form_ready():
+    plain = to_plain(_MESSY_DRAFT)
+    for junk in ("##", "**", "&nbsp;", "[1]", "[2]", "Deal Desk Note"):
+        assert junk not in plain, f"{junk!r} leaked into the copy text"
+    assert "LIMITATION OF LIABILITY" in plain
+
+
+def test_to_html_formats_and_superscripts_citations():
+    html = to_html(_MESSY_DRAFT)
+    assert "<strong>" in html
+    assert "<sup>[1]</sup>" in html
+    assert "<blockquote>" in html  # the deal-desk note is shown, but kept separate
+    assert "&nbsp;" not in html
 
 
 # --- /api/demo ---------------------------------------------------------------
