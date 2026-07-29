@@ -83,6 +83,12 @@ observability = [
     # is incompatible and would break the tracing layer.
     "langfuse>=3.0,<4.0",
 ]
+web = [
+    # The Render web service: a FastAPI app that streams the pipeline as SSE and
+    # serves the static case-study page. See web/ and API_SURFACE-style contract.
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+]
 
 [project.scripts]
 rag-ingest = "rag_revops.ingest:app"
