@@ -1,0 +1,20 @@
+# Render blueprint — one Docker web service serving the static page and /api/*.
+# BYO-key: visitors bring their own Anthropic + Cohere keys per request, so no
+# API keys live in the service env. The demo index is baked into the image, so no
+# persistent disk is required for the read-only demo corpus.
+services:
+  - type: web
+    name: deal-desk-helper
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Silence the local metrics sink on the container (BYO-key demo runs
+      # untraced). Remove to collect operational metrics into the container fs.
+      - key: RAG_METRICS_PATH
+        value: ""
+      # Optional: set to gate GET /api/metrics. Leave unset to disable that route.
+      # - key: ADMIN_TOKEN
+      #   generateValue: true

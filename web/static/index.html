@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deal Desk Helper — contract analysis with the receipts attached</title>
+<meta name="description" content="Citation-grounded contract analysis. Ask in plain English; it works out what you meant, shows the passages it used, and says 'I don't know' instead of guessing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="dd-shell" style="padding: 0 clamp(28px, 8vw, 140px) 140px;">
+
+  <!-- Nav -->
+  <div style="max-width: 1000px; margin: 0 auto; display: flex; align-items: center; gap: 32px; padding: 34px 0 10px;">
+    <span style="font-family: var(--serif); font-size: 20px; margin-right: auto;">Deal Desk Helper</span>
+    <a href="#tool" style="font-size: 15px;">The tool</a>
+    <a href="#how" style="font-size: 15px;">How it works</a>
+    <a href="#proof" style="font-size: 15px;">Proof</a>
+    <a class="sbtn sbtn-quiet" href="https://github.com/stephenjang-creator/rag-revops">View the code</a>
+  </div>
+
+  <div class="dd-sections" style="max-width: 1000px; margin: 0 auto; display: grid; gap: 132px;">
+
+    <!-- Hero -->
+    <section class="dd-hero" style="padding-top: 84px; display: grid; gap: 40px;">
+      <div style="display: grid; gap: 26px; max-width: min(820px, 100%);">
+        <span class="eyebrow">Contract analysis · Python</span>
+        <h1 style="font-size: clamp(40px, 6vw, 66px); font-weight: 300;">Answers about your contracts, with the receipts attached.</h1>
+      </div>
+      <p style="font-size: 20px; line-height: 1.58; max-width: 32em; color: var(--ink-soft);">Deal desks get asked the same two questions all day: <em>what does this contract say about X?</em> and <em>which of our contracts have X?</em> This tool answers both in plain English, shows the passages it used, and says "I don't know" instead of making something up.</p>
+      <div style="display: flex; gap: 14px; padding-top: 6px; flex-wrap: wrap;">
+        <a class="sbtn sbtn-primary" href="#tool">Watch it work</a>
+        <a class="sbtn sbtn-quiet" href="https://github.com/stephenjang-creator/rag-revops">Read the code</a>
+      </div>
+      <div class="dd-hero-figs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 40px; padding-top: 44px; border-top: 1px solid var(--line);">
+        <div style="display: grid; gap: 8px;">
+          <span style="font-family: var(--serif); font-size: 40px; line-height: 1; color: var(--accent-deep);">100%</span>
+          <span style="font-size: 15px; color: var(--ink-soft); max-width: 17em;">of answers point back to the passages they came from</span>
+        </div>
+        <div style="display: grid; gap: 8px;">
+          <span style="font-family: var(--serif); font-size: 40px; line-height: 1; color: var(--accent-deep);">Four times</span>
+          <span style="font-size: 15px; color: var(--ink-soft); max-width: 17em;">as many matching contracts found once meaning, not wording, decided the match</span>
+        </div>
+        <div style="display: grid; gap: 8px;">
+          <span style="font-family: var(--serif); font-size: 40px; line-height: 1; color: var(--accent-deep);">One in six</span>
+          <span style="font-size: 15px; color: var(--ink-soft); max-width: 17em;">questions answered with an honest "I can't tell you that"</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- What you can ask it -->
+    <section style="display: grid; gap: 52px;">
+      <div style="display: grid; gap: 18px; max-width: min(680px, 100%);">
+        <span class="eyebrow">What you can ask it</span>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">One box. It works out what you meant.</h2>
+        <p style="color: var(--ink-soft); max-width: 26em;">There's no mode to pick. Type the request the way you'd say it to a colleague, and it tells you which kind of question it decided you were asking.</p>
+      </div>
+      <div class="dd-grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
+        <div class="tone-card">
+          <span class="label label-accent">Give me wording</span>
+          <h3 style="font-size: 25px;">"I need payment terms for net 30."</h3>
+          <p style="font-size: 15.5px; color: var(--ink-soft);">It finds the closest real language in your contract book, drafts something you can paste into an order form, and names every agreement it borrowed from.</p>
+        </div>
+        <div class="tone-card">
+          <span class="label label-accent">Search the book</span>
+          <h3 style="font-size: 25px;">"Which contracts let us walk away?"</h3>
+          <p style="font-size: 15.5px; color: var(--ink-soft);">It reads every contract you have and returns the ones that qualify — including the ones that never use your words for it.</p>
+        </div>
+        <div class="tone-card">
+          <span class="label label-accent">Ask about one</span>
+          <h3 style="font-size: 25px;">"What does this one say?"</h3>
+          <p style="font-size: 15.5px; color: var(--ink-soft);">Pick a single agreement and ask. The answer comes only from that document — or an honest "that isn't covered here."</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- The tool -->
+    <section id="tool" style="display: grid; gap: 44px; scroll-margin-top: 40px;">
+      <div style="display: grid; gap: 18px; max-width: min(680px, 100%);">
+        <span class="eyebrow">The tool</span>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">Try a recorded run</h2>
+        <p style="color: var(--ink-soft); max-width: 30em;">Pick a question and the demo walks through a real session — what it decided you were asking, how it translated your wording, and what it came back with. No keys, no setup. <span style="color: var(--ink-faint);">Bring your own Anthropic + Cohere keys to run your own question.</span></p>
+      </div>
+
+      <div style="background: var(--surface); border-radius: 26px; padding: 44px; display: grid; gap: 32px;">
+        <div style="display: grid; gap: 16px;">
+          <span class="label">Pick a question</span>
+          <div id="dd-picker" class="dd-grid-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;"></div>
+        </div>
+
+        <div style="display: flex; gap: 14px; align-items: stretch;">
+          <div class="qfield placeholder" id="dd-question">Pick one of the questions above…</div>
+          <button class="sbtn sbtn-primary" id="dd-ask" style="min-width: 132px;" disabled>Ask</button>
+        </div>
+
+        <!-- BYO-key: unlocks a free-text question and streams a real run -->
+        <details id="dd-keys">
+          <summary style="cursor: pointer; font-size: 14px; color: var(--ink-faint); list-style: none;">Use your own API keys to ask anything →</summary>
+          <div class="dd-keybody" style="display: grid; gap: 14px; margin-top: 18px; max-width: 46em;">
+            <p style="margin: 0; font-size: 14px; color: var(--ink-soft);">Keys are sent only with your request, held for that request, never logged or stored. Free-tier keys work. With both set, the question box becomes editable and your run streams live.</p>
+            <div class="dd-keyrow" style="display: flex; gap: 14px; flex-wrap: wrap;">
+              <input class="kinput" id="dd-akey" type="password" placeholder="Anthropic API key" autocomplete="off">
+              <input class="kinput" id="dd-ckey" type="password" placeholder="Cohere API key" autocomplete="off">
+            </div>
+          </div>
+        </details>
+
+        <div id="dd-run"></div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" style="display: grid; gap: 52px; scroll-margin-top: 40px;">
+      <div style="display: grid; gap: 22px; max-width: min(760px, 100%);">
+        <span class="eyebrow">How it works</span>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">The hard part isn't search. It's that contracts never use your words.</h2>
+        <p style="color: var(--ink-soft); max-width: 30em;">Ask for "termination for convenience" and the clause you need reads "either party may terminate without cause upon thirty days' notice." Searching for the phrase misses it. So does similarity search. So, it turns out, does the standard tool for ranking results — it compares wording, not meaning.</p>
+        <p style="color: var(--ink-soft); max-width: 30em;">So the decision moved. Ranking still chooses what order to read the contracts in, but a model that knows "without cause" <em>is</em> convenience decides whether each one qualifies. That one change took a termination question from four matches to sixteen.</p>
+      </div>
+      <div class="dd-grid-2" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px;">
+        <div class="tone-card" style="gap: 10px; padding: 30px 32px;">
+          <span class="label">First</span>
+          <h3 style="font-size: 24px;">It translates the ask</h3>
+          <p style="font-size: 16px; color: var(--ink-soft);">"Can either party do a TFC" becomes proper contract language before anything is searched — and you see the translation, so you can tell whether it understood you.</p>
+        </div>
+        <div class="tone-card" style="gap: 10px; padding: 30px 32px;">
+          <span class="label">Then</span>
+          <h3 style="font-size: 24px;">It picks the kind of question</h3>
+          <p style="font-size: 16px; color: var(--ink-soft);">One contract, the whole book, or fresh drafting language. It says which it chose and why, and you can overrule it.</p>
+        </div>
+        <div class="tone-card" style="gap: 10px; padding: 30px 32px;">
+          <span class="label">Next</span>
+          <h3 style="font-size: 24px;">It looks two ways at once</h3>
+          <p style="font-size: 16px; color: var(--ink-soft);">Exact wording catches section numbers and figures. Meaning-based search catches the paraphrase. Both sets are merged before anything is read closely.</p>
+        </div>
+        <div class="tone-card" style="gap: 10px; padding: 30px 32px;">
+          <span class="label">Finally</span>
+          <h3 style="font-size: 24px;">It answers, or it doesn't</h3>
+          <p style="font-size: 16px; color: var(--ink-soft);">Every statement is tied to a passage someone can go read. If the passages don't support one, you get a decline instead of a guess.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Proof -->
+    <section id="proof" style="display: grid; gap: 52px; scroll-margin-top: 40px;">
+      <div style="display: grid; gap: 22px; max-width: min(680px, 100%);">
+        <span class="eyebrow">Proof</span>
+        <h2 style="font-size: clamp(30px, 4.2vw, 42px);">Quality is measured, not claimed.</h2>
+        <p style="color: var(--ink-soft); max-width: 28em;">Every change to the system is graded automatically against a set of contracts with known answers. If grounding slips or answers get slow, the change doesn't ship.</p>
+      </div>
+      <div class="dd-proof" style="display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start;">
+        <div style="display: grid; gap: 2px;">
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line);">
+            <span style="font-size: 16px; color: var(--ink-soft);">Answers that cite a source</span>
+            <span style="font-family: var(--serif); font-size: 20px;">All of them</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line);">
+            <span style="font-size: 16px; color: var(--ink-soft);">Slowest answers</span>
+            <span style="font-family: var(--serif); font-size: 20px;">Under a minute</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line);">
+            <span style="font-size: 16px; color: var(--ink-soft);">Requests that failed outright</span>
+            <span style="font-family: var(--serif); font-size: 20px;">None</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 16px 0;">
+            <span style="font-size: 16px; color: var(--ink-soft);">Questions declined on purpose</span>
+            <span style="font-family: var(--serif); font-size: 20px;">One in six</span>
+          </div>
+        </div>
+        <div style="display: grid; gap: 34px;">
+          <div style="display: grid; gap: 8px;">
+            <h3 style="font-size: 22px;">No proprietary data, ever</h3>
+            <p style="font-size: 16px; color: var(--ink-soft);">Every document is public contract data (CUAD, CC BY 4.0), with its licensing written down. A contract tool that can't say where its knowledge came from is a problem waiting to happen.</p>
+          </div>
+          <div style="display: grid; gap: 8px;">
+            <h3 style="font-size: 22px;">Nothing is hidden in the code</h3>
+            <p style="font-size: 16px; color: var(--ink-soft);">The instructions given to the model live in version control, so changing how it's asked something is a change someone can review.</p>
+          </div>
+          <div style="display: grid; gap: 8px;">
+            <h3 style="font-size: 22px;">Built in Python, end to end</h3>
+            <p style="font-size: 16px; color: var(--ink-soft);">Retrieval, ranking, drafting and grading — all of it typed, linted and unit-tested, with the write-up of what broke along the way in the repo.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing CTA -->
+    <section style="display: grid; gap: 22px; padding-top: 56px; border-top: 1px solid var(--line);">
+      <h2 style="font-size: clamp(28px, 3.6vw, 38px); max-width: min(620px, 100%);">Want to poke at it yourself?</h2>
+      <p style="color: var(--ink-soft); max-width: 32em;">Pick a question above and watch a real session replay, or bring your own API keys and ask anything — nothing is stored or logged. The repo has the pipeline, the grading, and an honest account of the three things that were broken before it worked.</p>
+      <div style="display: flex; gap: 14px; padding-top: 10px; flex-wrap: wrap;">
+        <a class="sbtn sbtn-primary" href="#tool">Try the demo</a>
+        <a class="sbtn sbtn-quiet" href="https://github.com/stephenjang-creator/rag-revops">Read the code</a>
+      </div>
+    </section>
+
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

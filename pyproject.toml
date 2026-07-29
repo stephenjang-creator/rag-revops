@@ -83,6 +83,12 @@ observability = [
     # is incompatible and would break the tracing layer.
     "langfuse>=3.0,<4.0",
 ]
+web = [
+    # The Render web service: a FastAPI app that streams the pipeline as SSE and
+    # serves the static case-study page. See web/ and API_SURFACE-style contract.
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+]
 
 [project.scripts]
 rag-ingest = "rag_revops.ingest:app"
@@ -90,7 +96,14 @@ rag-query = "rag_revops.query:app"
 rag-metrics = "rag_revops.metrics_report:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+# rag_revops lives under src/; the web service package lives at the repo root.
+# Installing `web` too means `pip install -e ".[web]"` makes `web.server`
+# importable anywhere (uvicorn on Render, etc.) without depending on cwd/PYTHONPATH.
+where = ["src", "."]
+include = ["rag_revops*", "web*"]
+
+[tool.setuptools.package-data]
+web = ["static/*"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,183 @@
+/* Deal Desk Helper — warm/soft design system (v2).
+ *
+ * One accent, three warm tones stacking for depth (--bg -> --surface -> #fdfbf7),
+ * no shadows. Newsreader for headings and figures, Source Sans 3 for everything
+ * else. Fonts are loaded via <link> in index.html.
+ */
+
+:root {
+  --bg: #faf7f2;
+  --surface: #f4efe7;
+  --raised: #fdfbf7;
+  --ink: #3a352f;
+  --ink-soft: #6b635a;
+  --ink-faint: #978e81;
+  --line: #e8e0d4;
+  --line-hover: #d9cfc0;
+  --accent: #a3765b;
+  --accent-deep: #7c5440;
+  --accent-tint: #f1e7de;
+  --serif: "Newsreader", Georgia, serif;
+  --sans: "Source Sans 3", system-ui, sans-serif;
+  --r-card: 18px;
+  --r-sm: 12px;
+  --r-pill: 999px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  line-height: 1.14;
+  margin: 0;
+}
+p { margin: 0; text-wrap: pretty; }
+a { color: var(--accent-deep); text-decoration: none; }
+a:hover { color: var(--ink); }
+em { font-style: italic; }
+::selection { background: var(--accent-tint); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Eyebrow / label helpers */
+.eyebrow {
+  font-size: 13.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+}
+.label {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.label-accent { color: var(--accent-deep); }
+
+/* — buttons — */
+.sbtn {
+  font-family: var(--sans);
+  font-size: 15.5px;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  padding: 12px 24px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background .25s ease, color .25s ease, border-color .25s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sbtn:disabled { opacity: .5; cursor: not-allowed; }
+.sbtn-primary { background: var(--accent); color: var(--raised); }
+.sbtn-primary:hover:not(:disabled) { background: var(--accent-deep); }
+.sbtn-quiet { background: transparent; color: var(--ink); border-color: var(--line); }
+.sbtn-quiet:hover:not(:disabled) { background: var(--surface); border-color: var(--line-hover); }
+
+/* — question picker — */
+.qpick {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: left;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 14px 18px;
+  cursor: pointer;
+  transition: background .25s ease, border-color .25s ease;
+}
+.qpick:hover { background: var(--surface); border-color: var(--line-hover); }
+.qpick[aria-current="true"] { background: var(--surface); border-color: var(--accent); }
+
+/* — question display / editable field — */
+.qfield {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  min-height: 54px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 16.5px;
+  color: var(--ink);
+  caret-color: var(--accent);
+}
+.qfield[contenteditable="true"]:focus-visible { border-color: var(--accent); outline: none; }
+.qfield.placeholder { color: var(--ink-faint); }
+
+/* — BYO-key inputs — */
+.kinput {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  caret-color: var(--accent);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+.kinput::placeholder { color: var(--ink-faint); }
+.kinput:focus-visible { border-color: var(--accent); outline: none; }
+
+/* — motion — */
+@keyframes sfIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sfSpin { to { transform: rotate(360deg); } }
+.sfin { animation: sfIn .5s cubic-bezier(.22,.7,.28,1) both; }
+.spinner {
+  width: 14px; height: 14px; flex: none;
+  border: 1.5px solid var(--accent-tint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: sfSpin 1.1s linear infinite;
+}
+
+/* — chips — */
+.chip {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+
+/* — cards (warm surfaces) — */
+.tone-card {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  padding: 34px 30px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.raised-card {
+  background: var(--raised);
+  border-radius: var(--r-card);
+  padding: 30px 32px;
+}
+
+/* — responsive: desktop-first at 1000px — */
+@media (max-width: 760px) {
+  .dd-sections { gap: 72px !important; }
+  .dd-grid-3, .dd-grid-2, .dd-hero-figs, .dd-reason-2col, .dd-proof { grid-template-columns: 1fr !important; }
+  .dd-proof { gap: 40px !important; }
+  .dd-trace-row { grid-template-columns: 1fr !important; gap: 4px !important; }
+  .dd-shell { padding: 0 20px 96px !important; }
+  .dd-keyrow { flex-direction: column !important; }
+}

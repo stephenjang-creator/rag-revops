@@ -1,7 +1,21 @@
-# Runtime dependencies for the Streamlit Community Cloud demo.
-# Streamlit Cloud installs from this file. Kept in sync with pyproject.toml's
-# runtime deps, plus streamlit itself. Dev/eval extras are intentionally omitted.
+# Runtime dependencies for the hosted demos. BOTH deploy targets install from
+# this file:
+#   * Streamlit Community Cloud  -> needs `streamlit` + the package.
+#   * Render (native Python)     -> auto-detects this file and runs
+#                                   `pip install -r requirements.txt`, so it
+#                                   needs the web extra (fastapi + uvicorn) too.
+#
+# Installing the package itself with `-e .[web]` is what ties this together: it
+# pulls every runtime dep from pyproject (chromadb, cohere, anthropic, langgraph,
+# ...) AND the web extra, AND makes both `rag_revops` (under src/) and the
+# top-level `web` package importable — which `uvicorn web.server:app` requires.
+# The explicit pins below are redundant with the editable install but kept as a
+# belt-and-suspenders lockstep with pyproject; dev/eval extras are omitted.
 
+# The package + its web service (fastapi, uvicorn) + all runtime deps.
+-e .[web]
+
+# The Streamlit Cloud demo entrypoint (not a package dependency).
 streamlit>=1.38.0
 
 # Orchestration
