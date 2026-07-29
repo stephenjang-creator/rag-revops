@@ -58,7 +58,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Live demo" = "https://rag-revops.streamlit.app"
+"Live demo" = "https://rag-revops.onrender.com"
 "Source" = "https://github.com/stephenjang-creator/rag-revops"
 
 [project.optional-dependencies]
