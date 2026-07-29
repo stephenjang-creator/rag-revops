@@ -34,6 +34,8 @@
   var $keyAck = document.getElementById("dd-key-ack");
   var $keyChange = document.getElementById("dd-key-change");
   var $keyClear = document.getElementById("dd-key-clear");
+  var $pickerLabel = document.getElementById("dd-picker-label");
+  var $qLabel = document.getElementById("dd-q-label");
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -355,6 +357,14 @@
     if (state.runId) { replay(state.runId); return; }
   }
 
+  // With keys, the recorded questions become "examples" and a clear "ask your
+  // own" affordance appears; without keys they're the thing you pick to replay.
+  function updateFraming() {
+    var on = !!hasKeys();
+    if ($pickerLabel) $pickerLabel.textContent = on ? "Example questions" : "Pick a question";
+    if ($qLabel) $qLabel.hidden = !on;
+  }
+
   function refreshEditable() {
     var on = !!hasKeys();
     $question.setAttribute("contenteditable", on ? "true" : "false");
@@ -363,6 +373,7 @@
       setPlaceholder(on ? EDIT_PLACEHOLDER : PICK_PLACEHOLDER);
     }
     $ask.disabled = !(state.runId || (on && currentQuestion()));
+    updateFraming();
   }
 
   function onKeyInput() {
@@ -394,6 +405,7 @@
     });
     [$akey, $ckey].forEach(function (i) { i.addEventListener("input", onKeyInput); });
     setKeyState(hasKeys() ? "ack" : "collapsed"); // in case the browser autofilled
+    updateFraming();
 
     $question.addEventListener("input", refreshEditable);
     $question.addEventListener("focus", function () {
